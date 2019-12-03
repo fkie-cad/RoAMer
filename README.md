@@ -41,3 +41,6 @@ This is still a very early version. Expect updates soon :)
 * Python 3.7 64bit
 * pyinstaller
 * pywin32: https://sourceforge.net/projects/pywin32/files/pywin32/
+
+## Sources
+* The hooks have been designed with the help of https://www.apriorit.com/dev-blog/160-apihooks
