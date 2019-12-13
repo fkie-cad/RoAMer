@@ -120,7 +120,7 @@ def virtual_query_ex(process_handle, address):
 
 def enum_process_modules(hProcess):
     size = 0x10000
-    lpcb_needed = c_longlong(size)
+    lpcb_needed = DWORD(size)
     lph_module = (c_longlong * 5000)()
     while True:
         if windll.psapi.EnumProcessModulesEx(hProcess, byref(lph_module), lpcb_needed, byref(lpcb_needed), 0x03):
