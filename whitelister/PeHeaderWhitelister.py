@@ -28,8 +28,11 @@ class PeHeaderWhitelister(object):
         self.hashed_pe_headers = {}
 
     def read_pe_header_from_file(self, path):
-        with open(path, "rb") as f_in:
-            return f_in.read(0x400)
+        try:
+            with open(path, "rb") as f_in:
+                return f_in.read(0x400)
+        except OSError:
+            print("could not read ", path, "... continuing")
 
     def _extractBitnessMagic(self, data, pe_offset):
         bitness_magic = 0
