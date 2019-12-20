@@ -39,16 +39,17 @@ This is still a very early version. Expect updates soon :)
 Screenshot how the VM should look like at the end:
 ![Screenshot of vm](screenshot_desktop.png) 
 --->
-# Configuration
+## Configuration
 * check the host's config.py for the `SNAPSHOT_NAME` (e.g. `init`) and `VM_NAME` (e.g. `win7box`)
 * Set `host_ip`, `host_port`, `guest_ip`, `guest_port` to the correct values of your setup
 * (How to edit config when working with multiple vms?)
 
-# Check configuration
+### Check configuration
 Make sure that the following files are existent in your setup:
 
 VM:
   `C:\Users\%username%\pe_header_whitelist.json`
+  
 Host:
   `../RoAMer/roamer/bin/main.exe`
 
