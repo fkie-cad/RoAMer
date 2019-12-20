@@ -9,7 +9,9 @@ This is still a very early version. Expect updates soon :)
 
 ## Setup
 ### Requirements and Pre-Setup
-#### Virtual machine for upacking process (only Virtualbox?)
+To run RoAMer you need to have a VirtualBox environment with a Windows VM to unpack the malware on. If we talk about VM in this howto, the windows machine is meant, if we talk about host system, your Linux/* system that is running the VirtualBox environment is meant.
+
+#### Virtual machine for upacking process
 * Hardened VM: [example howto](https://byte-atlas.blogspot.com/2017/02/hardening-vbox-win7x64.html)
   * At least Firewall and Windows Defender need to be deactivated in the VM
   * Virtual Network, where the host system is able to communicate with the VM
@@ -18,31 +20,28 @@ This is still a very early version. Expect updates soon :)
   * [pywin32](https://pypi.org/project/pywin32/)
  
 #### Host System
-* Python (virtual) environment (> v3.7) that satisfies:
-  * [pyinstaller](https://pypi.org/project/PyInstaller/)
+* Python (virtual) environment (> v3.7) 
 
-### Compile on VM
+### Compile on Windows VM
 * clone git repo
 * execute `compile.bat` in cmd
 * compiled version can be found in unpacker/dist, pewhitelister/dist, and receiver/dist
 
 ### Deployment
 * run `PeHeaderWhitelister.exe C:\` in cmd on VM and copy the resulting file of this script to the current VM's user home directory
-(* if you work with multiple VMs you have to assign static IP addresses and configure them in the config.py)
 * Copy from VM: unpacker/dist/main.exe to Host: roamer/bin
 * start receiver ´main.exe´ in the VM within a command line terminal (cmd.exe) as an administrator 
 * move desktop symbols so that the upper left corner is free
 * create a shortcut to notepad as the first icon directly below the free space (right click -> New -> Shortcut: `C:\Windows\notepad.exe`)
 * open notepad with the shortcut and move it over the notepad shortcut icon, then close notepad
 * create snapshot and name it e.g. `init`
-<!---
+
 Screenshot how the VM should look like at the end:
 ![Screenshot of vm](screenshot_desktop.png) 
---->
+
 ## Configuration
 * check the host's config.py for the `SNAPSHOT_NAME` (e.g. `init`) and `VM_NAME` (e.g. `win7box`)
 * Set `host_ip`, `host_port`, `guest_ip`, `guest_port` to the correct values of your setup
-* (How to edit config when working with multiple vms?)
 
 ### Check configuration
 Make sure that the following files are existent in your setup:
