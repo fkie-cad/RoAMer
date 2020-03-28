@@ -3,7 +3,8 @@
 This repository is the home of RoAMer, the "Robust Automatic Malware Unpacker".
 RoAMer has been developed by Thorsten Jenke, with code contributions by Daniel Plohmann.
 
-It is a generic unpacker based on dynamic analysis. The paper has been presented on MALWARE 2019 and will be released soonish.
+It is a generic unpacker based on dynamic analysis. The [paper](http://www.malwareconference.org/index.php/en/2019-malware-conference-proceedings/2019-malware-conference/session-3-un-packers-reverse-engineering-and-other-musings/roamer-the-robust-automated-malware-unpacker/detail) has been presented on MALWARE 2019 and will be released soonish.
+Citation: Thorsten Jenke, Daniel Plohmann, and Elmar Padilla, "RoAMer: The Robust Automated Malware Unpacker," 2019 14th International Conference on Malicious and Unwanted Software (MALWARE), Nantucket, MA, USA, 2019, pp. 67-74.
 
 This is still a very early version. Expect updates soon :)
 
