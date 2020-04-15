@@ -107,11 +107,13 @@ class RoAMer:
             sock.close()
 
     def run_folder(self, target_path):
-        for root, _, filenames in os.walk(target_path):
-            for filename in filenames:
-                self.run_file(os.path.join(root, filename))
+        for filename in os.listdir(target_path):
+            sample = os.path.join(target_path, filename)
+            if os.path.isfile(sample):
+                self.run_file(sample)
 
     def run_file(self, target_path):
+        LOG.info("Unpacking %s", target_path)
         unpacker_files = self.gather_files_for_unpacker(target_path)
         self.prepare_vm()
         self.communicate_with_receiver(unpacker_files)
