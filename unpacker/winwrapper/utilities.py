@@ -294,7 +294,7 @@ def startAsLibrary(samplePath):
 def startAsExe(config, userInteractor, samplePath, sampleName):
     if config["spoof_user"]:
         logging.info("start sample with a double click.")
-        userInteractor.mouse_double_click(config["desktop_sample_pos_x"], config["desktop_sample_pos_x"])
+        userInteractor.launch_sample(config["desktop_sample_pos_x"], config["desktop_sample_pos_x"])
     else:
         logging.info("starting sample via kernel32.CreateProcess()")
         try:

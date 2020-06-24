@@ -10,7 +10,7 @@ This is still a very early version. Expect updates soon :)
 
 ## Setup
 ### Requirements and Pre-Setup
-To run RoAMer you need to have a VirtualBox environment with a Windows Virtual Machine (VM) to unpack the malware on. 
+To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Virtual Machine (VM) to unpack the malware on.
 
 #### Virtual machine for upacking process
 * Hardened VM: [example howto](https://byte-atlas.blogspot.com/2017/02/hardening-vbox-win7x64.html)
@@ -19,26 +19,26 @@ To run RoAMer you need to have a VirtualBox environment with a Windows Virtual M
 * Python (virtual) environment (>= v3.7) that satisfies:
   * [pyinstaller](https://pypi.org/project/PyInstaller/)
   * [pywin32](https://pypi.org/project/pywin32/)
- 
+
 #### Host System
-* Python (virtual) environment (>= v3.7) 
+* Python (virtual) environment (>= v3.7)
 
 ### Compile on Windows VM
 * clone the git repository
-* execute `compile.bat`in Windows CMD, this will compile the python scripts into Windows executable files
+* execute `compile.bat` in Windows CMD, this will compile the python scripts into Windows executable files
 * the executables can be found in unpacker/dist, pewhitelister/dist and receiver/dist
 
 ### Deployment
 * run `PeHeaderWhitelister.exe C:\` in Windows CMD in the VM and copy the resulting `pe_header_whitelist.json` file of this script to the current VM's users home directory (`C:\Users\%username%\`)
 * Copy the file `unpacker/dist/main.exe` from the VM to the host system into `$Repository/roamer/bin`
-* start receiver ´main.exe´ in the VM within a command line terminal (cmd.exe) as an administrator 
+* start receiver ´main.exe´ in the VM within a command line terminal (cmd.exe) as an administrator
 * move desktop the symbols so that the upper left corner of your desktop is free
 * create a shortcut to notepad as the first icon directly below the free space (right click -> New -> Shortcut: `C:\Windows\notepad.exe`)
 * open notepad with the new shortcut and move the notepad windows over the notepad shortcut icon, then close notepad
 * create a snapshot of the VM in VirtualBox and name it e.g. `init`
 
 Screenshot how the VM should look like at the end:
-![Screenshot of vm](screenshot_desktop.png) 
+![Screenshot of vm](screenshot_desktop.png)
 
 ## Configuration
 * check the host's config.py and set the `SNAPSHOT_NAME` (e.g. `init`) and `VM_NAME` (e.g. `win7box`)
@@ -49,7 +49,7 @@ Make sure that the following files are existent in your setup:
 
 VM:
   `C:\Users\%username%\pe_header_whitelist.json`
-  
+
 Host:
   `../RoAMer/roamer/bin/main.exe`
 

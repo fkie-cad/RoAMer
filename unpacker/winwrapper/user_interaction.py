@@ -32,10 +32,19 @@ class UserInteractor:
         # Mouse up.
         windll.user32.mouse_event(4, 0, 0, 0, None)
 
+    def launch_sample(self, x, y):
+        self.press_f5()
+        time.sleep(1.5)
+        self.mouse_double_click(x, y)
+
     def mouse_double_click(self, x, y):
         self.move_mouse(x, y)
         self.click_mouse(x, y)
         self.click_mouse(x, y)
+
+    def press_f5(self):
+        windll.user32.keybd_event(116, 0x45, 1 | 0, 0)
+        windll.user32.keybd_event(116, 0x45, 1 | 2, 0)
 
     def move_mouse_randomly(self):
         nextPosX = random.randrange(self.spoofMinX, self.spoofMaxX)

@@ -45,6 +45,7 @@ UNPACKER_CONFIG = {
 }
 
 # Virtualization related
+## VM_CONTROLLER choose "VboxManageController" for VirtualBox or "KvmManageController" for KVM
 VM_CONTROLLER = "VboxManageController"
 VM_NAME = "vm_name"
 SNAPSHOT_NAME = "snapshot_name"

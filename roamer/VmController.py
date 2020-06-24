@@ -15,6 +15,8 @@ class VmController(object):
             return VboxApiController(headless)
         if controller_type == "VboxManageController":
             return VboxManageController(headless)
+        if controller_type == "KvmManageController":
+            return KvmManageController()
         assert 0, "No implementation for " + controller_type
     factory = staticmethod(factory)
 
@@ -26,6 +28,27 @@ class VmController(object):
 
     def start_vm(self, vm_name):
         raise NotImplementedError
+
+
+class KvmManageController(VmController):
+    def __init__(self):
+        import libvirt
+        self.libvirt = libvirt
+
+    def stop_vm(self, vm_name):
+        with self.libvirt.open(None) as conn:
+            vm = conn.lookupByName(vm_name)
+            vm.destroy()
+
+    def set_snapshot(self, vm_name, snapshot_name):
+        with self.libvirt.open(None) as conn:
+            vm = conn.lookupByName(vm_name)
+            snapshot = vm.snapshotLookupByName(snapshot_name)
+            vm.revertToSnapshot(snapshot)
+
+    def start_vm(self, vm_name):
+        # This function is not needed, as libvirt already runs the VM when setting the snapshot unlike VBOX
+        pass
 
 
 class VboxManageController(VmController):

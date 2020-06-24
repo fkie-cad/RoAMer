@@ -70,7 +70,7 @@ class RoAMer:
         LOG.info("Sending file list...")
         sock.sendall(bytes(",".join(unpacker_files["unpacker"].keys()), encoding="utf-8"))
         LOG.info("waiting for needed files...")
-        needed = sock.recv(1024)
+        needed = sock.recv(1024 * 1024)
         print(needed)
         unavailableFiles = set(unpacker_files["unpacker"].keys()).difference(set(str(a, encoding="utf-8") for a in needed.split(b",")))
         for k in unavailableFiles:
@@ -97,7 +97,7 @@ class RoAMer:
         returned_data_raw = b""
         try:
             while True:
-                data = connection.recv(1024)
+                data = connection.recv(1024 * 1024)
                 if not data:
                     break
                 returned_data_raw += data

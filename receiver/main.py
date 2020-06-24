@@ -43,7 +43,7 @@ class Receiver:
     def _receive_data(self, conn):
         received_data = b""
         while True:
-            data = conn.recv(1024)
+            data = conn.recv(1024 * 1024)
             if not data:
                 break
             received_data += data

@@ -2,7 +2,7 @@
 # Copyright (C) 2014-2016 Cuckoo Foundation.
 # This file was part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # Edited by Daniel Plohmann for needs in RoAMer
-# See the file 'docs/LICENSE' for copying permission.
+# See the file 'LICENSE' for copying permission.
 
 import logging
 import re
