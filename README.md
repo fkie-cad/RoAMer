@@ -10,7 +10,7 @@ This is still a very early version. Expect updates soon :)
 
 ## Setup
 ### Requirements and Pre-Setup
-To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Virtual Machine (VM) to unpack the malware on.
+To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Virtual Machine (VM) to unpack the malware on. So far, we have only tested RoAMer on Windows7 64Bit.
 
 #### Virtual machine for upacking process
 * Hardened VM: [example howto](https://byte-atlas.blogspot.com/2017/02/hardening-vbox-win7x64.html)
@@ -66,7 +66,7 @@ The unpacker is performing mouse moving and click actions, that malware is less 
 This may occur when some broken exe files are located in you AppData or Windows Update directory, remove these corrupt files, then whitelister will run through.
 
 #### Compatibility issues on Windows 10
-RoAMer was originally developed to unpack on Windows 7 systems, we monitored some issues on Windows 10 that might or might not be critical for execution. We're currently working on resolving these issues.
+RoAMer was originally developed to unpack on Windows 7 64Bit systems, we monitored some issues on Windows 10 that might or might not be critical for execution. We're currently working on resolving these issues.
 
 ## Sources
 * The hooks have been designed with the help of https://www.apriorit.com/dev-blog/160-apihooks
