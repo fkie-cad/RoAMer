@@ -286,7 +286,7 @@ def startAsLibrary(samplePath):
         for exp in pe.DIRECTORY_ENTRY_EXPORT.symbols:
             logging.info("Starting function name {} and ordinal {}".format(exp.name, exp.ordinal))
             func = exp.name if exp.name else exp.ordinal
-            launchProcess("{} {},{}".format(rundll_path, samplePath, str(func)))
+            launchProcess("{} {},{}".format(rundll_path, samplePath, func.decode("UTF-8")))
     except:
         logging.error("failed launching as DLL.")
 
