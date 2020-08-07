@@ -1,7 +1,6 @@
 # RoAMer
 
-This repository is the home of RoAMer, the "Robust Automatic Malware Unpacker".
-RoAMer has been developed by Thorsten Jenke, with code contributions by Daniel Plohmann.
+This repository is the home of RoAMer, the "Robust Automatic Malware Unpacker". RoAMer is a generic malware unpacker based on dynamic analysis.
 
 It is a generic unpacker based on dynamic analysis. The [paper](http://www.malwareconference.org/index.php/en/2019-malware-conference-proceedings/2019-malware-conference/session-3-un-packers-reverse-engineering-and-other-musings/roamer-the-robust-automated-malware-unpacker/detail) has been presented on MALWARE 2019.
 Citation: Thorsten Jenke, Daniel Plohmann, and Elmar Padilla, "RoAMer: The Robust Automated Malware Unpacker," 2019 14th International Conference on Malicious and Unwanted Software (MALWARE), Nantucket, MA, USA, 2019, pp. 67-74.
@@ -68,5 +67,11 @@ This may occur when some broken exe files are located in you AppData or Windows 
 #### Compatibility issues on Windows 10
 RoAMer was originally developed to unpack on Windows 7 64Bit systems, we monitored some issues on Windows 10 that might or might not be critical for execution. We're currently working on resolving these issues.
 
+#### Why is the malware not getting unpacked.
+RoAMer is doing a really bad job at conveying information on why it was not able to unpack a given sample. We can offer, that you send us the sample and we check, why RoAMer was not able to unpack the malware. Maybe this leads us to the discovery of some bugs.
+
+## Mentions
+RoAMer was mentioned in [TA505's Box of Chocolate - On Hidden Gems packed with the TA505 Packer](https://www.telekom.com/en/blog/group/article/cybersecurity-ta505-s-box-of-chocolate-597672) by Thomas Barabosch.
+
 ## Sources
-* The hooks have been designed with the help of https://www.apriorit.com/dev-blog/160-apihooks
+* The hooks have been designed with the help of  https://www.apriorit.com/dev-blog/160-apihooks
