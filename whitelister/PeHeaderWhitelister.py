@@ -33,6 +33,7 @@ class PeHeaderWhitelister(object):
                 return f_in.read(0x400)
         except OSError:
             print("could not read ", path, "... continuing")
+            return b""
 
     def _extractBitnessMagic(self, data, pe_offset):
         bitness_magic = 0
@@ -90,4 +91,3 @@ if __name__ == "__main__":
         WHITELISTER = PeHeaderWhitelister()
         whitelist = WHITELISTER.generate_pe_header_whitelist(sys.argv[1])
         WHITELISTER.store_whitelist()
-
