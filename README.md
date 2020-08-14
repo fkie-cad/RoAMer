@@ -15,12 +15,12 @@ To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Vi
 * Hardened VM: [example howto](https://byte-atlas.blogspot.com/2017/02/hardening-vbox-win7x64.html)
   * At least Firewall and Windows Defender need to be deactivated in the VM
   * Virtual Network, where the host system is able to communicate with the VM
-* Python (virtual) environment (>= v3.7) that satisfies:
+* Python (virtual) environment (<= v3.7) that satisfies:
   * [pyinstaller](https://pypi.org/project/PyInstaller/)
   * [pywin32](https://pypi.org/project/pywin32/)
 
 #### Host System
-* Python (virtual) environment (>= v3.7)
+* Python3 (virtual) environment (>= v3.6)
 
 ### Compile on Windows VM
 * clone the git repository
