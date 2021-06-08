@@ -5,7 +5,7 @@ This repository is the home of RoAMer, the "Robust Automatic Malware Unpacker". 
 It is a generic unpacker based on dynamic analysis. The [paper](http://www.malwareconference.org/index.php/en/2019-malware-conference-proceedings/2019-malware-conference/session-3-un-packers-reverse-engineering-and-other-musings/roamer-the-robust-automated-malware-unpacker/detail) has been presented on MALWARE 2019.
 Citation: Thorsten Jenke, Daniel Plohmann, and Elmar Padilla, "RoAMer: The Robust Automated Malware Unpacker," 2019 14th International Conference on Malicious and Unwanted Software (MALWARE), Nantucket, MA, USA, 2019, pp. 67-74.
 
-This is still a very early version. Expect updates soon :)
+This is still a very early version. 
 
 ## Setup
 ### Requirements and Pre-Setup
