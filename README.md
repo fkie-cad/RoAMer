@@ -30,7 +30,7 @@ To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Vi
 ### Deployment
 * run `PeHeaderWhitelister.exe C:\` in Windows CMD in the VM and copy the resulting `pe_header_whitelist.json` file of this script to the current VM's users home directory (`C:\Users\%username%\`)
 * Copy the file `unpacker/dist/main.exe` from the VM to the host system into `$Repository/roamer/bin`
-* start receiver ´main.exe´ in the VM within a command line terminal (cmd.exe) as an administrator
+* start receiver `main.exe` in the VM within a command line terminal (cmd.exe) as an administrator
 * move desktop the symbols so that the upper left corner of your desktop is free
 * create a shortcut to notepad as the first icon directly below the free space (right click -> New -> Shortcut: `C:\Windows\notepad.exe`)
 * open notepad with the new shortcut and move the notepad windows over the notepad shortcut icon, then close notepad
