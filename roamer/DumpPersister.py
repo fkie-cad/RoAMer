@@ -4,6 +4,8 @@ import datetime
 import base64
 from copy import deepcopy
 
+from utility.pe_tools import iterate_pe_headers
+
 
 class DumpPersister:
     def __init__(self, prefix, returned_data):
@@ -40,9 +42,15 @@ def _strip_trailing_zeroes(data):
 
 
 def _persist_dump(dump, result_path):
+    merged_segments = _merge_dump_segments(dump)
+    # dump PEs
+    for offset, _ in iterate_pe_headers(merged_segments):
+        pe_name = "%d_0x%08x_PE" % (dump["pid"], dump["base"]+offset)
+        pe_path = os.path.join(result_path, pe_name)
+        with open(pe_path, "wb") as fPE:
+            fPE.write(_strip_trailing_zeroes(merged_segments[offset:]))
     dump_name = "%d_0x%08x" % (dump["pid"], dump["base"])
     dump_path = os.path.join(result_path, dump_name)
-    merged_segments = _merge_dump_segments(dump)
     dump_info = deepcopy(dump)
     dump_info["dump_name"] = dump_name
     with open(dump_path, "wb") as fDump:
