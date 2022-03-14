@@ -28,6 +28,8 @@ UNPACKER_CONFIG = {
                 "pe_header_whitelist",
                 "memmap_change",
                 "only_executable_filter",
+                #"only_pe_header_filter",
+                #"only_executable_or_pe_header_filter",
                 "mapped_memory"
             ],
             # Control over merging of gapped segments
