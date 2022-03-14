@@ -19,7 +19,7 @@ def iterate_pe_headers(data):
         candidate_offset = candidate.start(0)
         optional_header_pointer = candidate_offset + int(0x3c)
         try:
-            optional_header_start = struct.unpack("I", data[optional_header_pointer:optional_header_pointer + 4])[0]
+            optional_header_start = candidate_offset + struct.unpack("I", data[optional_header_pointer:optional_header_pointer + 4])[0]
         except struct.error:
             continue
         if data[optional_header_start:optional_header_start + 2] == b"PE":
@@ -28,16 +28,17 @@ def iterate_pe_headers(data):
 
 def normalize_pe_header(data):
     normalized_pe_header = data
-    for _, optional_header_start in iterate_pe_headers(data):
+    for candidate_offset, optional_header_start in iterate_pe_headers(data):
         num_sections = struct.unpack("H", data[optional_header_start + 6:optional_header_start + 8])[0]
-        end_pointer = 0x200
+        end_pointer = candidate_offset + 0x200
         if _extractBitnessMagic(data, optional_header_start) == 0x14c:
             normalized_pe_header = data[:optional_header_start + 0x34] + b"\x00" * 4 + data[optional_header_start + 0x38:]
             end_pointer = optional_header_start + 0xf8 + num_sections * 0x28
         elif _extractBitnessMagic(data, optional_header_start) == 0x8664:
             normalized_pe_header = data[:optional_header_start + 0x30] + b"\x00" * 8 + data[optional_header_start + 0x38:]
             end_pointer = optional_header_start + 0x108 + num_sections * 0x28
-        normalized_pe_header = normalized_pe_header[:end_pointer]
+        normalized_pe_header = normalized_pe_header[candidate_offset:end_pointer]
+        break
     return normalized_pe_header
 
 
