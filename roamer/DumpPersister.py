@@ -43,18 +43,20 @@ def _strip_trailing_zeroes(data):
 
 def _persist_dump(dump, result_path):
     merged_segments = _merge_dump_segments(dump)
-    # dump PEs
+    offsets = set()
+    offsets.add(0)
+    # Always dump original file
+    # Add offsets of all contained PE files
     for offset, _ in iterate_pe_headers(merged_segments):
-        pe_name = "%d_0x%08x_PE" % (dump["pid"], dump["base"]+offset)
-        pe_path = os.path.join(result_path, pe_name)
-        with open(pe_path, "wb") as fPE:
+        offsets.add(offset)
+    for offset in offsets:
+        dump_name = "%d_0x%08x" % (dump["pid"], dump["base"]+offset)
+        dump_path = os.path.join(result_path, dump_name)
+        with open(dump_path, "wb") as fPE:
             fPE.write(_strip_trailing_zeroes(merged_segments[offset:]))
     dump_name = "%d_0x%08x" % (dump["pid"], dump["base"])
-    dump_path = os.path.join(result_path, dump_name)
     dump_info = deepcopy(dump)
     dump_info["dump_name"] = dump_name
-    with open(dump_path, "wb") as fDump:
-        fDump.write(_strip_trailing_zeroes(merged_segments))
     segment_infos = []
     for segment in dump_info["segments"]:
         segment.pop("dump")
