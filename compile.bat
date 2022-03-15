@@ -8,3 +8,6 @@ cd ..
 cd unpacker
 pyinstaller --onefile --clean main.py
 cd ..
+cd updater
+pyinstaller --onefile --clean update_launcher.py
+cd ..
