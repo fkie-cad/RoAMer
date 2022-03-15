@@ -133,7 +133,7 @@ class Deployer:
         updater_files = self.gather_data(source_folder)
         self.prepare_vm()
         self.communicate_with_receiver_force_send(updater_files)
-
+        
         # returned_raw_data = self.communicate_with_updater()
         # if returned_raw_data:
         #     if returned_raw_data == b'"RUNNING"':
@@ -145,9 +145,10 @@ class Deployer:
         # returned_raw_data = self.communicate_with_updater()
         # if returned_raw_data:
         #     if returned_raw_data == b'"DONE"':
-
-        # self.vm_controller.stop_vm(self.vm_name)
-        # time.sleep(5)
+        input()
+        self.vm_controller.update_snapshot(self.vm_name, self.snapshotName)
+        self.vm_controller.stop_vm(self.vm_name)
+        time.sleep(5)
 
 
 
