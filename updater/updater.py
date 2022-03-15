@@ -23,18 +23,32 @@ def send_keycode(key_code):
 
 extract(roamer_zip_path, roamer_repo_path)
 
+# compile everything
 compile_process = subprocess.Popen(roamer_repo_path+"\\compile.bat", cwd=roamer_repo_path)
 compile_process.wait()
 
+# copy roamer unpacker
 shutil.copy(roamer_repo_path+"\\unpacker\\dist\\main.exe", user_path+"main.exe")
+
+# copy roamer receiver
 shutil.copy(roamer_repo_path+"\\receiver\\dist\\main.exe", user_path+"Desktop\\roamer.exe")
 
+# update whitelist
+subprocess.Popen(roamer_repo_path+"\\whitelister\\dist\\PEHeaderWhitelister.exe C:\\", cwd=roamer_repo_path+"\\whitelister").wait()
+shutil.copy(roamer_repo_path+"\\whitelister\\pe_header_whitelist.json", user_path+"pe_header_whitelist.json")
+
+#remove update script
+os.remove(os.path.abspath(__file__))
 
 send_keycode(0x0D) # Enter
+
+#clear screen
 send_keycode(ord("C"))
 send_keycode(ord("L"))
 send_keycode(ord("S"))
 send_keycode(0x0D) # Enter
 send_keycode(0x26) # Up
+
+# restart roamer receiver
 send_keycode(0x26) # Up
 send_keycode(0x0D) # Enter
