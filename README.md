@@ -16,7 +16,7 @@ To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Vi
   * At least Firewall and Windows Defender need to be deactivated in the VM
   * Virtual Network, where the host system is able to communicate with the VM
 * Python (virtual) environment (<= v3.7) that satisfies:
-  * [pyinstaller](https://pypi.org/project/PyInstaller/)
+  * [pyinstaller](https://pypi.org/project/PyInstaller/) (<= v3.6)
   * [pywin32](https://pypi.org/project/pywin32/)
 
 #### Host System
@@ -30,6 +30,7 @@ To run RoAMer you need to have a VirtualBox or KVM environment with a Windows Vi
 ### Deployment
 * run `PeHeaderWhitelister.exe C:\` in Windows CMD in the VM and copy the resulting `pe_header_whitelist.json` file of this script to the current VM's users home directory (`C:\Users\%username%\`)
 * Copy the file `unpacker/dist/main.exe` from the VM to the host system into `$Repository/roamer/bin`
+* Ensure that the receiver `main.exe` is not stored at `C:\Users\%username%\main.exe` (this path is already reserved for the unpacker `main.exe`)
 * start receiver `main.exe` in the VM within a command line terminal (cmd.exe) as an administrator
 * move desktop the symbols so that the upper left corner of your desktop is free
 * create a shortcut to notepad as the first icon directly below the free space (right click -> New -> Shortcut: `C:\Windows\notepad.exe`)
