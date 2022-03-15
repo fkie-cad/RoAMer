@@ -65,6 +65,10 @@ The unpacker is performing mouse moving and click actions, that malware is less 
 #### Whitelister script runs into "InvalidArgument" exception
 This may occur when some broken exe files are located in you AppData or Windows Update directory, remove these corrupt files, then whitelister will run through.
 
+#### The Unpacker cannot connect back to the host: "WinError 10060 - A connection attempt failed because the party did not properly respond..."
+
+In case you encounter a situation where the host is able to start up the virtual machine, transfer files and start the analysis, but no data is transferred back to the host, please ensure that your host does not have firewall settings that block incoming connections (like UFW on Ubuntu or similar).
+
 #### Compatibility issues on Windows 10
 RoAMer was originally developed to unpack on Windows 7 64Bit systems, we monitored some issues on Windows 10 that might or might not be critical for execution. We're currently working on resolving these issues.
 
