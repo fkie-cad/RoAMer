@@ -49,7 +49,7 @@ class Deployer:
     def gather_data(self, source_folder):
         unpacker_files={}
         unpacker_files["sample"] = self._to_base64(b"empty because of update")
-        unpacker_files["config"] = self._to_base64(b"empty because of update")
+        unpacker_files["config"] = self._to_base64(bytes(json.dumps(self.unpacker_config), encoding="utf-8"))
         unpacker_files["unpacker"] = {
             "main.exe": self._get_content_of_file_as_base64(os.path.join(source_folder, "updater", "bin", "update_launcher.exe")),
             "updater.py": self._get_content_of_file_as_base64(os.path.join(source_folder, "updater", "updater.py")),
@@ -134,18 +134,24 @@ class Deployer:
         self.prepare_vm()
         self.communicate_with_receiver_force_send(updater_files)
         
-        # returned_raw_data = self.communicate_with_updater()
-        # if returned_raw_data:
-        #     if returned_raw_data == b'"RUNNING"':
-        #         LOG.info("Unpacker status: {}".format(returned_raw_data))
-        #     else:
-        #         LOG.warning("Unpacker status unknown, this should be investigated!")
-        #         LOG.info("{}".format(returned_raw_data))
-        # # receive actual result output
-        # returned_raw_data = self.communicate_with_updater()
-        # if returned_raw_data:
-        #     if returned_raw_data == b'"DONE"':
-        input()
+        returned_raw_data = self.communicate_with_updater()
+        if returned_raw_data:
+            if returned_raw_data == b'"RUNNING"':
+                LOG.info("Updater status: {}".format(returned_raw_data))
+            else:
+                LOG.warning("Updater status unknown, this should be investigated!")
+                LOG.info("{}".format(returned_raw_data))
+        # receive actual result output
+        returned_raw_data = self.communicate_with_updater()
+        if returned_raw_data:
+            files = json.loads(returned_raw_data)
+            unpacker = base64.b64decode(files["unpacker"])
+            LOG.info("Write Unpacker")
+            with open(os.path.join(source_folder, "roamer", "bin", "main.exe"), "wb") as file:
+                file.write(unpacker)
+        else:
+            LOG.warning("No Data was send by the updater!")
+        time.sleep(2)
         self.vm_controller.update_snapshot(self.vm_name, self.snapshotName)
         self.vm_controller.stop_vm(self.vm_name)
         time.sleep(5)
