@@ -1,10 +1,9 @@
+import argparse
 import hashlib
 import json
 import os
 import re
 import struct
-import sys
-
 
 def hexdump(src, length=32, indent=0):
     """
@@ -87,7 +86,13 @@ class PeHeaderWhitelister(object):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+    parser = argparse.ArgumentParser(description='PeHeaderWhitelister')
+    parser.add_argument('Path', type=str, help='Root-path for whitelisting')
+    args = parser.parse_args()
+
+    if os.path.exists(args.Path):
         WHITELISTER = PeHeaderWhitelister()
-        whitelist = WHITELISTER.generate_pe_header_whitelist(sys.argv[1])
+        whitelist = WHITELISTER.generate_pe_header_whitelist(args.Path)
         WHITELISTER.store_whitelist()
+    else:
+        print("Error: Path does not exist")
