@@ -97,3 +97,5 @@ ENV/
 .vscode
 config.py
 data/*
+roamer/bin/pe_header_whitelist.json
+roamer/bin/main.exe
