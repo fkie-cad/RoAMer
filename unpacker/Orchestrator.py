@@ -59,19 +59,20 @@ class Orchestrator:
         if not os.path.isdir(self.userPath + os.sep + "roamer_output"):
             os.makedirs(self.userPath + os.sep + "roamer_output")
         os.makedirs(outputPath)
-        with open(outputPath + os.sep + "stats.json", "wb") as fOutput:
+        with open(outputPath + os.sep + "stats.json", "w") as fOutput:
             fOutput.write(json.dumps(output["4x5_hook_spoofuser"]["stats"], indent=1, sort_keys=True))
-        with open(outputPath + os.sep + "observations.json", "wb") as fOutput:
+        with open(outputPath + os.sep + "observations.json", "w") as fOutput:
             fOutput.write(json.dumps(output["4x5_hook_spoofuser"]["observations"], indent=1, sort_keys=True))
         for dump in output["4x5_hook_spoofuser"]["dumps"]:
             fn = "%d_0x%08x.bin" % (dump["pid"], dump["base"])
-            with open(outputPath + os.sep + fn, "wb") as fOutput:
+            with open(outputPath + os.sep + fn, "w") as fOutput:
                 fOutput.write(json.dumps(dump, indent=1, sort_keys=True))
 
     def run(self):
         results = {}
         self.load_config()
-        self.send_output("RUNNING")
+        if not self.isLocalUnpacking:
+            self.send_output("RUNNING")
         for parameters in self.config["parameters"]:
             logging.info("starting with config")
             self.initiate(parameters)
