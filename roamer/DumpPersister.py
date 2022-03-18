@@ -72,6 +72,7 @@ def _persist_dumps(config_result, result_path):
     for dump in config_result["dumps"]:
         dump_info = _persist_dump(dump, result_path)
         dump_stats[dump_info["dump_name"]] = dump_info
+        dump_info["process_name"] = str(base64.b64decode(dump_info["process_name"]))
     _persist_as_json(dump_stats, os.path.join(result_path, "dump_stats.json"))
 
 
