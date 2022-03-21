@@ -13,13 +13,14 @@ from unpacker.winwrapper.utilities import return_memory_map_for_pid, open_proces
 
 class Dumper:
 
-    def __init__(self, filter_names, additonal_white_list):
+    def __init__(self, filter_names, additonal_white_list, discard_reserved_segment_size):
         self.filters = self.initiate_filters(filter_names, additonal_white_list)
         self.stats = {"dumper": {}}
         self.dump_task_cases = Counter()
         self.mem_map_changes = {}
         self.modules = {}
         self.additonal_white_list = additonal_white_list
+        self.discard_reserved_segment_size = discard_reserved_segment_size
 
     def initiate_filters(self, filter_names, additonal_white_list):
         filters = []
@@ -123,8 +124,15 @@ class Dumper:
                                 self.dump_task_cases["consecutive_is_pe"] += 1
                                 tasks.append(dump_task)
                                 dump_task = self._create_dump_task(pid, segment, current_modules)
+                            # if discarding of segments is enabled and
+                            # - segment is reserved, not commited
+                            # - segment is to large
+                            elif (self.discard_reserved_segment_size is not None) and segment[5] == 0x2000 and segment[4] > self.discard_reserved_segment_size:
+                                self.dump_task_cases["consecutive_is_large_reserved"] += 1
+                                tasks.append(dump_task)
+                                dump_task = None # Throw reserved region away
                             else:
-                                self.dump_task_cases["consecutive_is_module"] += 1
+                                self.dump_task_cases["consecutive_other"] += 1
                                 dump_task.add_segment(segment)
                         else:
                             self.dump_task_cases["non_consecutive"] += 1
