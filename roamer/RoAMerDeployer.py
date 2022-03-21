@@ -14,20 +14,26 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
 
 
 
-def zip_folder(path):
+def zip_folder(repo_path):
     zfName = 'roamer.zip'
-    if os.path.exists(zfName):
-        os.remove(zfName)
-    with zipfile.ZipFile(zfName, 'w') as zf:
+    full_zip_path = os.path.join(repo_path, zfName)
+    if os.path.exists(full_zip_path):
+        os.remove(full_zip_path)
+    with zipfile.ZipFile(full_zip_path, 'w') as zf:
         # Adding files from directory 'files'
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in os.walk(repo_path):
             for f in files:
                 if f == zfName:
                     continue
                 filename = os.path.join(root, f)
-                arcname = os.path.relpath(filename, path)
+                arcname = os.path.relpath(filename, repo_path)
                 zf.write(filename, arcname=arcname)
 
+def remove_zip(repo_path):
+    zfName = 'roamer.zip'
+    full_zip_path = os.path.join(repo_path, zfName)
+    if os.path.exists(full_zip_path):
+        os.remove(full_zip_path)
 
 
 class Deployer:
@@ -133,6 +139,7 @@ class Deployer:
         updater_files = self.gather_data(source_folder)
         self.prepare_vm()
         self.communicate_with_receiver_force_send(updater_files)
+        remove_zip(source_folder)
         
         returned_raw_data = self.communicate_with_updater()
         if returned_raw_data:
