@@ -94,8 +94,19 @@ class Updater:
             os.remove(os.path.abspath(__file__))
         else:
             logging.info("Remove this executable")
-            #TODO: this does not work
-            os.remove(self.userPath+"main.exe")
+            tmp_bat_path = self.userPath+"tmp.bat"
+            self_delete_cmd = f"""
+                @echo off
+                :start
+                if exist {self.userPath+'main.exe'} goto delete
+                del {tmp_bat_path}
+                :delete
+                del {self.userPath+'main.exe'}
+                goto start
+            """
+            with open(tmp_bat_path, "w") as f:
+                f.write(self_delete_cmd)
+            subprocess.Popen(f"cmd /c {tmp_bat_path}", stdout=None)
 
     def update_whitelist(self, executable_path):
         subprocess.Popen(executable_path+" C:\\", cwd=self.userPath).wait()
@@ -156,7 +167,7 @@ class Updater:
             self.replace_receiver(receiver_source_path)
 
         if "whitelister_bin_to_client" in self.tasks:
-            whitelister_source_path = self.userPath+"whitelister"
+            whitelister_source_path = self.userPath+"whitelister.exe"
             strict_cleanup_list += [whitelister_source_path]
 
         if "whitelist" in self.tasks:
