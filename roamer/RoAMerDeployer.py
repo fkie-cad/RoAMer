@@ -21,10 +21,9 @@ def zip_folder(repo_path):
     if os.path.exists(full_zip_path):
         os.remove(full_zip_path)
     with zipfile.ZipFile(full_zip_path, 'w') as zf:
-        # Adding files from directory 'files'
         for root, dirs, files in os.walk(repo_path):
             for f in files:
-                if f == zfName:
+                if f == zfName or f.endswith(".exe") or ".git" in root or "deployer_results" in root:
                     continue
                 filename = os.path.join(root, f)
                 arcname = os.path.relpath(filename, repo_path)
