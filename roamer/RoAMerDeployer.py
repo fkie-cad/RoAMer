@@ -2,11 +2,12 @@ import base64
 import json
 import logging
 import os
+from re import I
+import shutil
 import socket
 import time
 import zipfile
 
-from roamer.DumpPersister import persist_data
 from roamer.VmController import VmController
 
 LOG = logging.getLogger(__name__)
@@ -36,14 +37,64 @@ def remove_zip(repo_path):
         os.remove(full_zip_path)
 
 
+def ExecuteDeployerTasks(roamer_config, tasks, headless, vm, snapshot, ident):
+    if not tasks:
+        tasks = roamer_config.TASKS
+
+    if len(tasks) == 0:
+        LOG.info("No task specified, nothing to do")
+        return
+    else:
+        LOG.info(f"Tasks: {', '.join(tasks)}")
+
+    try:
+        tasks.remove("all")
+        tasks += ["unpacker", "receiver", "whitelister", "whitelist", "bootstrap"]
+    except ValueError:
+        pass
+    
+    single_setup = (roamer_config.BUILD_INSTANCE == roamer_config.PROD_INSTANCE)
+    build_subtasks = set()
+    prod_subtasks = set()
+    for task in tasks:
+        if task=="unpacker":
+            build_subtasks.update(["compile_on_client", "overwrite_unpacker"])
+        elif task=="receiver":
+            build_subtasks.update(["compile_on_client", "overwrite_receiver", "reinit_and_store"])
+            if not single_setup:
+                prod_subtasks.update(["receiver_bin_to_client", "overwrite_receiver", "reinit_and_store"])
+        elif task=="whitelister":
+            build_subtasks.update(["compile_on_client", "overwrite_whitelister"])
+        elif task=="whitelist":
+            if single_setup:
+                build_subtasks.update(["compile_on_client", "whitelist", "reinit_and_store"])
+            else:
+                prod_subtasks.update(["whitelister_bin_to_client", "whitelist", "reinit_and_store"])
+        elif task=="bootstrap":
+            build_subtasks.update(["compile_on_client", "overwrite_updater"])
+        else:
+            LOG.error("Unknown task %s, Exiting", task)
+            return
+    if build_subtasks:
+        LOG.info("Run Deployer on Build Snapshot")
+        LOG.info(f"subtaks: {', '.join(build_subtasks)}")
+        Deployer(roamer_config, roamer_config.BUILD_INSTANCE, build_subtasks, headless, vm, snapshot, ident).deploy()
+    if prod_subtasks:
+        LOG.info("Run Deployer on Prod Snapshot")
+        LOG.info(f"subtaks: {', '.join(prod_subtasks)}")
+        Deployer(roamer_config, roamer_config.PROD_INSTANCE, prod_subtasks, headless, vm, snapshot, ident).deploy()
+
+
 class Deployer:
 
-    def __init__(self, roamer_config, headless, vm, snapshot, ident):
-        self.unpacker_config = roamer_config.UNPACKER_CONFIG
+    def __init__(self, roamer_config, instance_config, tasks, headless, vm, snapshot, ident):
+        self.deployer_config = instance_config
+        self.tasks = list(tasks)
         self.bins = roamer_config.BIN_ROOT
-        self.vm_name = roamer_config.VM_NAME if not vm else vm
-        self.snapshotName = roamer_config.SNAPSHOT_NAME if not snapshot else snapshot
-        self.vm_controller = VmController.factory(roamer_config.VM_CONTROLLER, headless)
+        self.source_folder = roamer_config.PROJECT_ROOT
+        self.vm_name = instance_config["VM_NAME"] if not vm else vm
+        self.snapshotName = instance_config["SNAPSHOT_NAME"] if not snapshot else snapshot
+        self.vm_controller = VmController.factory(instance_config["VM_CONTROLLER"], headless)
         self.sample = ""
         self.ident = ident
 
@@ -52,16 +103,33 @@ class Deployer:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock
 
-    def gather_data(self, source_folder):
+    def _select_files_to_send(self):
+        files_to_send = {}
+        if self.deployer_config["staged_update"]:
+            files_to_send["main.exe"] = "updater/bin/update_launcher.exe"
+            files_to_send["updater.py"] = "updater/updater.py"
+        else: 
+            files_to_send["main.exe"] = "updater/bin/updater.exe"
+
+        if "compile_on_client" in self.tasks:
+            files_to_send["roamer.zip"] = "roamer.zip"
+
+        if "receiver_bin_to_client" in self.tasks:
+            files_to_send["new_receiver.exe"] = "deployer_results/receiver"
+
+        if "whitelister_bin_to_client" in self.tasks:
+            files_to_send["whitelister.exe"] = "whitelister/bin/PEHeaderWhitelister.exe"
+        return files_to_send
+
+    def gather_data(self):
         unpacker_files={}
         unpacker_files["sample"] = self._to_base64(b"empty because of update")
-        unpacker_files["config"] = self._to_base64(bytes(json.dumps(self.unpacker_config), encoding="utf-8"))
-        unpacker_files["unpacker"] = {
-            "main.exe": self._get_content_of_file_as_base64(os.path.join(source_folder, "updater", "bin", "update_launcher.exe")),
-            "updater.py": self._get_content_of_file_as_base64(os.path.join(source_folder, "updater", "updater.py")),
-            # "main.exe": self._get_content_of_file_as_base64(os.path.join(source_folder, "updater", "bin", "updater.exe")),
-            "roamer.zip": self._get_content_of_file_as_base64(os.path.join(source_folder, "roamer.zip")),
-        }
+        config = dict(**self.deployer_config, tasks=self.tasks) # add tasks to config
+        unpacker_files["config"] = self._to_base64(bytes(json.dumps(config), encoding="utf-8"))
+        files_dict = {}
+        for key, val in self._select_files_to_send().items():
+            files_dict[key] = self._get_content_of_file_as_base64(os.path.join(self.source_folder, *val.split("/")))
+        unpacker_files["unpacker"] = files_dict
         return unpacker_files
 
     def _to_base64(self, string):
@@ -84,12 +152,12 @@ class Deployer:
         LOG.info("VM %s should now be running on snapshot %s", self.vm_name, self.snapshotName)
 
     def communicate_with_receiver_force_send(self, unpacker_files):
-        print((self.unpacker_config["guest_ip"], self.unpacker_config["guest_port"]))
+        print((self.deployer_config["guest_ip"], self.deployer_config["guest_port"]))
         LOG.info("Connecting to roamer-receiver...")
         sock = self.initiate_socket()
         while True:
             try:
-                sock.connect((self.unpacker_config["guest_ip"], self.unpacker_config["guest_port"]))
+                sock.connect((self.deployer_config["guest_ip"], self.deployer_config["guest_port"]))
                 break
             except socket.error:
                 time.sleep(1)
@@ -102,14 +170,14 @@ class Deployer:
         sock.sendall(bytes(json.dumps(unpacker_files), encoding="utf-8"))
         sock.shutdown(socket.SHUT_WR)
         sock.close()
-        LOG.info("sending of unpacker completed.")
+        LOG.info("sending of updater completed.")
         return
 
     def communicate_with_updater(self):
         sock = self.initiate_socket()
-        sock.bind((self.unpacker_config["host_ip"], self.unpacker_config["host_port"]))
+        sock.bind((self.deployer_config["host_ip"], self.deployer_config["host_port"]))
         sock.listen(1)
-        sock.settimeout(self.unpacker_config["socket_timeout"])
+        sock.settimeout(self.deployer_config["socket_timeout"])
         LOG.info("waiting for connection")
         try:
             connection, client_address = sock.accept()
@@ -132,14 +200,17 @@ class Deployer:
 
     def deploy(self):
 
-        source_folder = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-        LOG.info("Zipping repo %s", source_folder)
-        zip_folder(source_folder)
+        if "compile_on_client" in self.tasks:
+            LOG.info("Zipping repo %s", self.source_folder)
+            zip_folder(self.source_folder)
 
-        updater_files = self.gather_data(source_folder)
+        updater_files = self.gather_data()
+
         self.prepare_vm()
         self.communicate_with_receiver_force_send(updater_files)
-        remove_zip(source_folder)
+
+        if "compile_on_client" in self.tasks:
+            remove_zip(self.source_folder)
         
         returned_raw_data = self.communicate_with_updater()
         if returned_raw_data:
@@ -148,18 +219,41 @@ class Deployer:
             else:
                 LOG.warning("Updater status unknown, this should be investigated!")
                 LOG.info("{}".format(returned_raw_data))
+
         # receive actual result output
         returned_raw_data = self.communicate_with_updater()
-        if returned_raw_data:
+        if returned_raw_data and returned_raw_data!=b'"empty"':
             files = json.loads(returned_raw_data)
-            unpacker = base64.b64decode(files["unpacker"])
-            LOG.info("Write Unpacker")
-            with open(os.path.join(source_folder, "roamer", "bin", "main.exe"), "wb") as file:
-                file.write(unpacker)
+            results_folder = os.path.join(self.source_folder, "deployer_results")
+            if os.path.exists(results_folder):
+                LOG.info("Clear deployer_results folder")
+                shutil.rmtree(results_folder)
+            os.mkdir(results_folder)
+
+            LOG.info("Write received files into deployer_results")
+            for name, data in files.items():
+                decoded_data = base64.b64decode(data)
+                with open(os.path.join(results_folder, name), "wb") as file:
+                    file.write(decoded_data)
+
+            if "overwrite_unpacker" in self.tasks:
+                shutil.copyfile(os.path.join(results_folder, "unpacker"), os.path.join(self.source_folder, "roamer", "bin", "main.exe"))
+
+            if "overwrite_whitelister" in self.tasks:
+                os.makedirs(os.path.join(self.source_folder, "whitelister", "bin"), exist_ok=True)
+                shutil.copyfile(os.path.join(results_folder, "whitelister"), os.path.join(self.source_folder, "whitelister", "bin", "PEHeaderWhitelister.exe"))
+            
+            if "overwrite_updater" in self.tasks:
+                os.makedirs(os.path.join(self.source_folder, "updater", "bin"), exist_ok=True)
+                shutil.copyfile(os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe"), os.path.join(self.source_folder, "updater", "bin", "update_launcher_backup.exe"))
+                shutil.copyfile(os.path.join(results_folder, "update_launcher"), os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe"))
+                shutil.copyfile(os.path.join(results_folder, "updater"), os.path.join(self.source_folder, "updater", "bin", "updater.exe"))
         else:
             LOG.warning("No Data was send by the updater!")
         time.sleep(2)
-        self.vm_controller.update_snapshot(self.vm_name, self.snapshotName)
+        if "reinit_and_store" in self.tasks:
+            LOG.info("Take new snapshot")
+            self.vm_controller.update_snapshot(self.vm_name, self.snapshotName)
         self.vm_controller.stop_vm(self.vm_name)
         time.sleep(5)
 

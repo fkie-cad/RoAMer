@@ -26,16 +26,24 @@ class Updater:
 
     def __init__(self):
         self.userPath = "C:\\Users\\%s\\" % os.getenv("username")
-        self.roamerRepoPath = self.userPath + "roamer_repo"
-        self.roamerZipPath = self.userPath + "roamer.zip"
-        self.receiverPath = self.userPath + "Desktop\\roamer.exe"
         self.config = None
+        with open(os.path.join(self.userPath, "config"), "rb") as f_in:
+            self.config = json.loads(f_in.read())
+        paths =  self.config["client_paths"]
+        self.roamerRepoPath = self._subst_userpath(paths["repo"])
+        self.roamerZipPath = self._subst_userpath(paths["repo_zip"])
+        self.receiverPath = self._subst_userpath(paths["receiver"])
+        self.toWhitelistPath = self._subst_userpath(paths["to_whitelist"])
         self.sample = None
+        self.tasks = self.config["tasks"]
         self.isLocalUnpacking = False
         self.sock = None
         self.unpacker = None
         # This one has to be imported so, that there is no interaction with the harddisk
         hackSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def _subst_userpath(self, path):
+        return path.format(USERPATH = self.userPath)
 
     def set_local_unpacker(self, value):
         if value:
@@ -52,18 +60,20 @@ class Updater:
         self.sock.shutdown(socket.SHUT_WR)
         self.sock.close()
 
-    def load_config(self):
-        with open(os.path.join(self.userPath, "config"), "rb") as f_in:
-            self.config = json.loads(f_in.read())
+    def send_nothing(self):
+        self.send_output("empty")
     
     def extract_source(self):
+        logging.info("Extract source code")
         extract(self.roamerZipPath, self.roamerRepoPath)
 
     def compile_source(self):
+        logging.info("Compile source code")
         compile_process = subprocess.Popen(self.roamerRepoPath+"\\compile.bat", cwd=self.roamerRepoPath)
         compile_process.wait()
 
     def restart_receiver(self, clear_screen=True):
+        logging.info("Restart the Receiver")
         send_keycode(0x0D) # Enter
 
         if clear_screen:
@@ -78,20 +88,21 @@ class Updater:
         send_keycode(0x0D) # Enter
 
     def remove_this_script(self):
-        os.remove(os.path.abspath(__file__))
-
-    def update_whitelist(self):
-        subprocess.Popen(self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe C:\\", cwd=self.roamerRepoPath+"\\whitelister").wait()
-        shutil.move(self.roamerRepoPath+"\\whitelister\\pe_header_whitelist.json", self.userPath+"pe_header_whitelist.json")
-
-    def copy_binaries(self, store_unpacker_at_userpath=True):
-        if store_unpacker_at_userpath:
-            # copy roamer unpacker
-            shutil.copy(self.roamerRepoPath+"\\unpacker\\dist\\main.exe", self.userPath+"main.exe")
-        else:
+        if self.config["staged_update"]:
+            logging.info("Remove this update script")
             os.remove(self.userPath+"main.exe")
-        # copy roamer receiver
-        shutil.copy(self.roamerRepoPath+"\\receiver\\dist\\main.exe", self.receiverPath)
+            os.remove(os.path.abspath(__file__))
+        else:
+            logging.info("Remove this executable")
+            #TODO: this does not work
+            os.remove(self.userPath+"main.exe")
+
+    def update_whitelist(self, executable_path):
+        subprocess.Popen(executable_path+" C:\\", cwd=self.userPath).wait()
+
+    def replace_receiver(self, source):
+        logging.info("Replace Receiver")
+        shutil.copy(source, self.receiverPath)
 
     def _to_base64(self, string):
         return str(base64.b64encode(string), encoding="utf-8")
@@ -102,38 +113,73 @@ class Updater:
         return self._to_base64(content)
 
     def send_binaries(self):
+        logging.info("Send back binaries to Host")
         result = {
             "unpacker": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\unpacker\\dist\\main.exe"),
             "receiver": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\receiver\\dist\\main.exe"),
             "whitelister": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"),
             "update_launcher": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\update_launcher.exe"),
+            "updater": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\updater.exe"),
         }
         self.send_output(result)
 
+    def cleanup(self, list):
+        for entry in list:
+            if not os.path.exists(entry):
+                continue
+            if os.path.isfile(entry):
+                os.remove(entry)
+            elif os.path.isdir(entry):
+                shutil.rmtree(entry)
+
+
     def run(self):
         results = {}
-        self.load_config()
+        #self.load_config()
+        strict_cleanup_list = [self.userPath+"config", self.userPath+"sample",]
+
         if not self.isLocalUnpacking:
             self.send_output("RUNNING")
-        logging.info("Extract source code")
-        self.extract_source()
-        logging.info("Compile source code")
-        self.compile_source()
-        logging.info("Copy binaries to targets")
-        self.copy_binaries(store_unpacker_at_userpath=True)
-        if not self.isLocalUnpacking:
-            logging.info("Send back binaries to Host")
+
+        if "compile_on_client" in self.tasks:
+            self.extract_source()
+            self.compile_source()
+            receiver_source_path = self.roamerRepoPath+"\\receiver\\dist\\main.exe"
+            whitelister_source_path = self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"
+            strict_cleanup_list += [self.roamerRepoPath, self.roamerZipPath]
+        
+        if "receiver_bin_to_client" in self.tasks:
+            receiver_source_path = self.userPath+"new_receiver.exe"
+            strict_cleanup_list += [receiver_source_path]
+
+        if "overwrite_receiver" in self.tasks:
+            self.replace_receiver(receiver_source_path)
+
+        if "whitelister_bin_to_client" in self.tasks:
+            whitelister_source_path = self.userPath+"whitelister"
+            strict_cleanup_list += [whitelister_source_path]
+
+        if "whitelist" in self.tasks:
+            self.update_whitelist(whitelister_source_path)
+
+        if "compile_on_client" in self.tasks and not self.isLocalUnpacking:
             self.send_binaries()
-        logging.info("Remove this update script")
-        self.remove_this_script()
-        logging.info("Restart the Receiver")
-        self.restart_receiver()
+        elif not self.isLocalUnpacking:
+            self.send_nothing()
+
+        if "reinit_and_store" in self.tasks:
+            if self.config["requires_cleaning_before_snapshot"]:
+                self.cleanup(strict_cleanup_list)
+                self.remove_this_script()
+            self.restart_receiver()
+
+
+
 
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="C:\\Users\\{}\\roamerupdate.log".format(os.getenv("username")),
-                        format="%(asctime)-15s %(levelname)-7s %(module)s.%(funcName)s(): %(message)s",
+    logging.basicConfig(format="%(asctime)-15s %(levelname)-7s %(module)s.%(funcName)s(): %(message)s",
                         level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(description='RoAMer Update Module.')
