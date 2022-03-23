@@ -188,7 +188,7 @@ class Updater:
         if "reinit_and_store" in self.tasks:
             if self.config["requires_cleaning_before_snapshot"]:
                 self.cleanup(strict_cleanup_list)
-                self.remove_this_script()
+            self.remove_this_script()
             self.restart_receiver()
 
 
