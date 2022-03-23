@@ -95,5 +95,9 @@ ENV/
 # more IDE settings
 .idea
 .vscode
+
+# RoAMer
 config.py
+deploy_config.py
+deployer_results
 data/*

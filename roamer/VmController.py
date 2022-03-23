@@ -1,5 +1,6 @@
 import logging
 import time
+import datetime
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
@@ -64,6 +65,14 @@ class VboxManageController(VmController):
     def set_snapshot(self, vm_name, snapshot_name):
         LOG.debug("MOCK: setSnapshot %s %s", vm_name, snapshot_name)
         self.cuckoo_virtualbox.setSnapshot(vm_name, snapshot_name)
+    
+    def update_snapshot(self, vm_name, snapshot_name, keep_old=True):
+        LOG.debug("MOCK: setSnapshot %s %s", vm_name, snapshot_name)
+        name_for_old_state = snapshot_name+"_old_"+datetime.datetime.utcnow().isoformat()
+        self.cuckoo_virtualbox.renameSnapshot(vm_name, name_for_old_state, snapshot_name)
+        self.cuckoo_virtualbox.takeSnapshot(vm_name, snapshot_name)
+        if not keep_old:
+            self.cuckoo_virtualbox.deleteSnapshot(name_for_old_state)
 
     def start_vm(self, vm_name):
         LOG.debug("MOCK: startVm %s", vm_name)

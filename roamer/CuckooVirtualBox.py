@@ -2,6 +2,7 @@
 # Copyright (C) 2014-2016 Cuckoo Foundation.
 # This file was part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # Edited by Daniel Plohmann for needs in RoAMer
+# Edited by Manuel Blatt for needs in RoAMer Deployment
 # See the file 'LICENSE' for copying permission.
 
 import logging
@@ -57,6 +58,82 @@ class CuckooVirtualBox(object):
             raise Exception("VBoxManage failed restoring the machine: %s" % exc)
 
         self._waitStatus(vm_name, self.SAVED)
+
+
+    def renameSnapshot(self, vm_name, new_name, snapshot_name=None):
+        """Reset virtual machine to a snapshot.
+        @param vm_name: virtual machine name.
+        @param task: task object.
+        @raise Exception: if unable to start.
+        """
+
+        # if self._status(vm_name) == self.RUNNING:
+        #     raise Exception("Trying to start an already started vm %s" % vm_name)
+
+        virtualbox_args = [self.vbox_manage_path, "snapshot", vm_name]
+        if snapshot_name is not None:
+            virtualbox_args.extend(["edit", snapshot_name])
+        else:
+            virtualbox_args.extend(["edit", "--current"])
+
+        virtualbox_args.extend(["--name", new_name])
+
+        try:
+            if subprocess.call(virtualbox_args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               close_fds=True):
+                raise Exception("VBoxManage exited with error restoring the machine's snapshot")
+        except OSError as exc:
+            raise Exception("VBoxManage failed restoring the machine: %s" % exc)
+
+    def takeSnapshot(self, vm_name, snapshot_name=None):
+        """Reset virtual machine to a snapshot.
+        @param vm_name: virtual machine name.
+        @param task: task object.
+        @raise Exception: if unable to start.
+        """
+
+        # if self._status(vm_name) == self.RUNNING:
+        #     raise Exception("Trying to start an already started vm %s" % vm_name)
+
+        virtualbox_args = [self.vbox_manage_path, "snapshot", vm_name]
+        if snapshot_name is not None:
+            virtualbox_args.extend(["take", snapshot_name])
+
+        try:
+            if subprocess.call(virtualbox_args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               close_fds=True):
+                raise Exception("VBoxManage exited with error restoring the machine's snapshot")
+        except OSError as exc:
+            raise Exception("VBoxManage failed restoring the machine: %s" % exc)
+
+    # TODO: This does not work yet
+    def deleteSnapshot(self, vm_name, snapshot_name=None):
+        """Reset virtual machine to a snapshot.
+        @param vm_name: virtual machine name.
+        @param task: task object.
+        @raise Exception: if unable to start.
+        """
+
+        # if self._status(vm_name) == self.RUNNING:
+        #     raise Exception("Trying to start an already started vm %s" % vm_name)
+
+        virtualbox_args = [self.vbox_manage_path, "snapshot", vm_name]
+        if snapshot_name is not None:
+            virtualbox_args.extend(["delete", snapshot_name])
+
+        try:
+            if subprocess.call(virtualbox_args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               close_fds=True):
+                raise Exception("VBoxManage exited with error restoring the machine's snapshot")
+        except OSError as exc:
+            raise Exception("VBoxManage failed restoring the machine: %s" % exc)
+
 
     def start(self, vm_name):
         """Start a virtual machine.
