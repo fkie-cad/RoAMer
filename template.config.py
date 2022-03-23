@@ -22,12 +22,19 @@ UNPACKER_CONFIG = {
             "monitoring_switches": [
                 "processes"
             ],
+            # Have the unpacker reduce the candidate list of segments to dump based on 
+            # these filters.
             "dump_filters": [
                 "pe_header_whitelist",
                 "memmap_change",
                 "only_executable_filter",
                 "mapped_memory"
             ],
+            # Control over merging of gapped segments
+            # set to 0x1000 to enable correct merging of .NET memory dumps
+            # set to 0x10000 to avoid merging unrelated heap buffers
+            # set to None to disable discarding of any reserved segments
+            "discard_reserved_segment_size": 0x10000, 
             "additional_pe_whitelist": {
                 "dotNet1.dll": ["c4aa77a6556cc19a1f1e5f5dd85ef7966489d413c19ea7433d9a4e244ddb4450"],
                 "dotNet2.dll": ["0bf521a45ff4ad7bb21220a069441a60d48874a61e30659bbb6a65f2d616d2fd"],
@@ -38,6 +45,8 @@ UNPACKER_CONFIG = {
                 "dotNet7.dll": ["2e0a4960905e2f0d1956691ff31e7a75a4f06db0b0a989821fd52fb8d89ac5f5"],
                 "dotNet8.dll": ["b371143568c9744f395400acaff6b73149d18906d8fce74d7a48d2f9cceb9989"]
             },
+            # if "spoof_user" is True and after "sample_start_delay" seconds, 
+            # perform a double click at "desktop_sample_pos_x/y" to start the sample
             "sample_start_delay": 5,
             "spoof_user": 1,
             "desktop_sample_pos_x": 40,
@@ -47,7 +56,7 @@ UNPACKER_CONFIG = {
 }
 
 # Virtualization related
-## VM_CONTROLLER choose "VboxManageController" for VirtualBox or "KvmManageController" for KVM
+## VM_CONTROLLER: choose "VboxManageController" for VirtualBox or "KvmManageController" for KVM
 VM_CONTROLLER = "VboxManageController"
 VM_NAME = "vm_name"
 SNAPSHOT_NAME = "snapshot_name"

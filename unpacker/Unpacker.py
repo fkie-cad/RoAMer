@@ -20,7 +20,7 @@ class Unpacker:
             additionalWhitelist = config["additional_pe_whitelist"]
         else:
             additionalWhitelist = {}
-        self.dumper = Dumper(config["dump_filters"], additionalWhitelist)
+        self.dumper = Dumper(config["dump_filters"], additionalWhitelist, config["discard_reserved_segment_size"])
         self.sample = sample
         self.sampleName = ""
         self.config = config
