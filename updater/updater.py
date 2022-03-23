@@ -1,6 +1,7 @@
 import argparse
 import base64
 import json
+import time
 import zipfile
 import os
 import shutil
@@ -147,6 +148,8 @@ class Updater:
     def run(self):
         results = {}
         #self.load_config()
+        start_time = time.time()
+        receiver_termination_duration = 4
         strict_cleanup_list = [self.userPath+"config", self.userPath+"sample",]
 
         if not self.isLocalUnpacking:
@@ -164,6 +167,10 @@ class Updater:
             strict_cleanup_list += [receiver_source_path]
 
         if "overwrite_receiver" in self.tasks:
+            now = time.time()
+            sleep_time = start_time + receiver_termination_duration - now
+            if sleep_time > 0:
+                time.sleep(sleep_time)
             self.replace_receiver(receiver_source_path)
 
         if "whitelister_bin_to_client" in self.tasks:
