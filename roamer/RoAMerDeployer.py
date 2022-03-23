@@ -236,15 +236,19 @@ class Deployer:
                     file.write(decoded_data)
 
             if "overwrite_unpacker" in self.tasks:
+                LOG.info("Overwrite unpacker at roamer/bin/main.exe with received data")
                 shutil.copyfile(os.path.join(results_folder, "unpacker"), os.path.join(self.source_folder, "roamer", "bin", "main.exe"))
 
             if "overwrite_whitelister" in self.tasks:
+                LOG.info("Overwrite whitelister at whitelister/bin/PEHeaderWhitelister.exe with received data")
                 os.makedirs(os.path.join(self.source_folder, "whitelister", "bin"), exist_ok=True)
                 shutil.copyfile(os.path.join(results_folder, "whitelister"), os.path.join(self.source_folder, "whitelister", "bin", "PEHeaderWhitelister.exe"))
             
             if "overwrite_updater" in self.tasks:
+                LOG.info("Overwrite updater.exe and update_launcher.exe in updater/bin with received data")
                 os.makedirs(os.path.join(self.source_folder, "updater", "bin"), exist_ok=True)
-                shutil.copyfile(os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe"), os.path.join(self.source_folder, "updater", "bin", "update_launcher_backup.exe"))
+                if os.path.exists(os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe")):
+                    shutil.copyfile(os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe"), os.path.join(self.source_folder, "updater", "bin", "update_launcher_backup.exe"))
                 shutil.copyfile(os.path.join(results_folder, "update_launcher"), os.path.join(self.source_folder, "updater", "bin", "update_launcher.exe"))
                 shutil.copyfile(os.path.join(results_folder, "updater"), os.path.join(self.source_folder, "updater", "bin", "updater.exe"))
         else:
