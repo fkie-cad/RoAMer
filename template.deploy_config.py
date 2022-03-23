@@ -55,6 +55,11 @@ PROD_INSTANCE = {
     "SNAPSHOT_NAME": "snapshot_name_prod",
 }
 
+# Use the following line instead of specifying a PROD_INSTANCE
+# if you are building roamer on the same vm instance you are dumping with
+
+# PROD_INSTANCE = BUILD_INSTANCE
+
 
                      
 TASKS = [

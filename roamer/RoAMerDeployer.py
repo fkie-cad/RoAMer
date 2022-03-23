@@ -52,6 +52,10 @@ def ExecuteDeployerTasks(roamer_config, tasks, headless, vm, snapshot, ident):
         pass
     
     single_setup = (roamer_config.BUILD_INSTANCE == roamer_config.PROD_INSTANCE)
+    if single_setup:
+        LOG.info("Using SINGLE instance deployment")
+    else:
+        LOG.info("Using TWO instances deployment")
     build_subtasks = set()
     prod_subtasks = set()
     for task in tasks:
