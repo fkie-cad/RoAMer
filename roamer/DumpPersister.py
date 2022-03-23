@@ -76,7 +76,7 @@ def _merge_dump_segments(dump):
         if segment["isdummy"]:
             result += b"\x00" * segment["size"]
         else:
-            result += base64.b64decode(segment["dump"])
+            result += base64.b64decode(segment["dump"]) + b"\x00" * (segment["size"] - segment["dumped_size"])
     return result
 
 
