@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-from re import I
 import shutil
 import socket
 import time
