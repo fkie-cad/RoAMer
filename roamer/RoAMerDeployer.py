@@ -35,7 +35,7 @@ def remove_zip(repo_path):
         os.remove(full_zip_path)
 
 
-def ExecuteDeployerTasks(roamer_config, tasks, headless, vm, snapshot, ident):
+def ExecuteDeployerTasks(roamer_config, tasks, headless, vm, snapshot, ident, keep, no_snap):
     if not tasks:
         tasks = roamer_config.TASKS
 
@@ -80,16 +80,16 @@ def ExecuteDeployerTasks(roamer_config, tasks, headless, vm, snapshot, ident):
     if build_subtasks:
         LOG.info("Run Deployer on Build Snapshot")
         LOG.info(f"subtaks: {', '.join(build_subtasks)}")
-        Deployer(roamer_config, roamer_config.BUILD_INSTANCE, build_subtasks, headless, vm, snapshot, ident).deploy()
+        Deployer(roamer_config, roamer_config.BUILD_INSTANCE, build_subtasks, headless, vm, snapshot, ident, keep, no_snap).deploy()
     if prod_subtasks:
         LOG.info("Run Deployer on Prod Snapshot")
         LOG.info(f"subtaks: {', '.join(prod_subtasks)}")
-        Deployer(roamer_config, roamer_config.PROD_INSTANCE, prod_subtasks, headless, vm, snapshot, ident).deploy()
+        Deployer(roamer_config, roamer_config.PROD_INSTANCE, prod_subtasks, headless, vm, snapshot, ident, keep, no_snap).deploy()
 
 
 class Deployer:
 
-    def __init__(self, roamer_config, instance_config, tasks, headless, vm, snapshot, ident):
+    def __init__(self, roamer_config, instance_config, tasks, headless, vm, snapshot, ident, keep_running, no_snap):
         self.deployer_config = instance_config
         self.tasks = list(tasks)
         self.bins = roamer_config.BIN_ROOT
@@ -97,6 +97,8 @@ class Deployer:
         self.vm_name = instance_config["VM_NAME"] if not vm else vm
         self.snapshotName = instance_config["SNAPSHOT_NAME"] if not snapshot else snapshot
         self.vm_controller = VmController.factory(instance_config["VM_CONTROLLER"], headless)
+        self.keep_running = keep_running
+        self.no_snap = no_snap
         self.sample = ""
         self.ident = ident
 
@@ -257,10 +259,11 @@ class Deployer:
         else:
             LOG.warning("No Data was send by the updater!")
         time.sleep(2)
-        if "reinit_and_store" in self.tasks:
+        if ("reinit_and_store" in self.tasks) and not self.no_snap:
             LOG.info("Take new snapshot")
             self.vm_controller.update_snapshot(self.vm_name, self.snapshotName)
-        self.vm_controller.stop_vm(self.vm_name)
+        if not self.keep_running:
+            self.vm_controller.stop_vm(self.vm_name)
         time.sleep(5)
 
 
