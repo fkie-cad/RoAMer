@@ -65,6 +65,8 @@ class Updater:
         self.send_output("empty")
     
     def extract_source(self):
+        logging.info("Remove old repo before extracting source")
+        self.cleanup([self.roamerRepoPath])
         logging.info("Extract source code")
         extract(self.roamerZipPath, self.roamerRepoPath)
 
