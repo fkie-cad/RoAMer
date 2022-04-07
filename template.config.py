@@ -25,6 +25,7 @@ UNPACKER_CONFIG = {
             # Have the unpacker reduce the candidate list of segments to dump based on 
             # these filters.
             "dump_filters": [
+                "own_pid_filter"
                 "pe_header_whitelist",
                 "memmap_change",
                 "only_executable_filter",
