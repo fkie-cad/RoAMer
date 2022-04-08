@@ -1,14 +1,8 @@
 import argparse
-import hashlib
 import json
 import os
-import sys
 
-WHITELISTER_FOLDER_PATH = str(os.path.dirname(os.path.abspath(__file__)))
-PROJECT_ROOT = str(os.path.abspath(os.sep.join([WHITELISTER_FOLDER_PATH, ".."])))
-
-sys.path.append(PROJECT_ROOT)
-from utility.pe_tools import normalize_pe_header
+from PeHeaderHasher import get_hashed_header_from_file
 
 def hexdump(src, length=32, indent=0):
     """
@@ -31,18 +25,9 @@ class PeHeaderWhitelister(object):
     def __init__(self):
         self.hashed_pe_headers = {}
 
-    def read_pe_header_from_file(self, path):
-        try:
-            with open(path, "rb") as f_in:
-                return f_in.read(0x400)
-        except OSError:
-            print("could not read ", path, "... continuing")
-            return b""
-
     def add_entry(self, root, filename):
-        header = normalize_pe_header(self.read_pe_header_from_file(os.path.join(root, filename)))
         file_entry = self.hashed_pe_headers.get(filename.lower(), [])
-        hashed_header = hashlib.sha256(header).hexdigest()
+        hashed_header = get_hashed_header_from_file(os.path.join(root, filename))
         if hashed_header not in file_entry:
             file_entry.append(hashed_header)
         self.hashed_pe_headers[filename.lower()] = file_entry
