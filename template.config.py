@@ -36,6 +36,9 @@ UNPACKER_CONFIG = {
             # set to None to disable discarding of any reserved segments
             "discard_reserved_segment_size": 0x10000, 
             "additional_pe_whitelist": {
+                "EP_EM0_sleep.dll": ["52d6854748d2b08c18392b27e705c980e1b7c3b52eb433393ba78eb001a6c42f"],
+                "both_EM0_sleep.dll": ["7b3315fd53a972a7a76312de2a6e1a89bb4e0c5329b0932e3de0a0f95eb66bdd"],
+                "TP_EM0_sleep.dll": ["a4a7ea713f350193c136e5c00067fd095584417af1f353e46dfc7c9439e0305c"],
                 "dotNet1.dll": ["c4aa77a6556cc19a1f1e5f5dd85ef7966489d413c19ea7433d9a4e244ddb4450"],
                 "dotNet2.dll": ["0bf521a45ff4ad7bb21220a069441a60d48874a61e30659bbb6a65f2d616d2fd"],
                 "dotNet3.dll": ["5bb85f402bed10719d8fcf5151c7ac9e989ee6b6fed3232283a126dcb79fb633"],
