@@ -2,8 +2,13 @@ import argparse
 import hashlib
 import json
 import os
-import re
-import struct
+import sys
+
+WHITELISTER_FOLDER_PATH = str(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = str(os.path.abspath(os.sep.join([WHITELISTER_FOLDER_PATH, ".."])))
+
+sys.path.append(PROJECT_ROOT)
+from utility.pe_tools import normalize_pe_header
 
 def hexdump(src, length=32, indent=0):
     """
@@ -34,38 +39,8 @@ class PeHeaderWhitelister(object):
             print("could not read ", path, "... continuing")
             return b""
 
-    def _extractBitnessMagic(self, data, pe_offset):
-        bitness_magic = 0
-        if len(data) >= pe_offset + 6:
-            bitness_magic = struct.unpack("H", data[pe_offset + 4:pe_offset + 6])[0]
-        return bitness_magic
-
-    def normalize_pe_header(self, data):
-        normalized_pe_header = data
-        header_candidates = re.finditer(b"\x4D\x5A", data)
-        for candidate in header_candidates:
-            candidate_offset = candidate.start(0)
-            optional_header_pointer = candidate_offset + int(0x3c)
-            try:
-                optional_header_start = struct.unpack("I", data[optional_header_pointer:optional_header_pointer + 4])[0]
-            except struct.error:
-                continue
-            if data[optional_header_start:optional_header_start + 2] == b"PE":
-                num_sections = struct.unpack("H", data[optional_header_start + 6:optional_header_start + 8])[0]
-                end_pointer = 0x200
-                if self._extractBitnessMagic(data, optional_header_start) == 0x14c:
-                    normalized_pe_header = data[:optional_header_start + 0x34] + b"\x00" * 4 + data[
-                                                                                               optional_header_start + 0x38:]
-                    end_pointer = optional_header_start + 0xf8 + num_sections * 0x28
-                elif self._extractBitnessMagic(data, optional_header_start) == 0x8664:
-                    normalized_pe_header = data[:optional_header_start + 0x30] + b"\x00" * 8 + data[
-                                                                                               optional_header_start + 0x38:]
-                    end_pointer = optional_header_start + 0x108 + num_sections * 0x28
-                normalized_pe_header = normalized_pe_header[:end_pointer]
-        return normalized_pe_header
-
     def add_entry(self, root, filename):
-        header = self.normalize_pe_header(self.read_pe_header_from_file(os.path.join(root, filename)))
+        header = normalize_pe_header(self.read_pe_header_from_file(os.path.join(root, filename)))
         file_entry = self.hashed_pe_headers.get(filename.lower(), [])
         hashed_header = hashlib.sha256(header).hexdigest()
         if hashed_header not in file_entry:
