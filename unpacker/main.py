@@ -4,6 +4,9 @@ import os
 
 from unpacker.Orchestrator import Orchestrator
 
+import sys
+# For utility imports
+sys.path.append('..')
 
 def main():
     logging.basicConfig(filename="C:\\Users\\{}\\roamer.log".format(os.getenv("username")),
