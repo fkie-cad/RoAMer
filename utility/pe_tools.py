@@ -13,8 +13,7 @@ def _extractBitnessMagic(data, pe_offset):
     return bitness_magic
 
 
-def normalize_pe_header(data):
-    normalized_pe_header = data
+def iterate_pe_headers(data):
     header_candidates = re.finditer(b"\x4D\x5A", data)
     for candidate in header_candidates:
         candidate_offset = candidate.start(0)
@@ -24,15 +23,21 @@ def normalize_pe_header(data):
         except struct.error:
             continue
         if data[optional_header_start:optional_header_start + 2] == b"PE":
-            num_sections = struct.unpack("H", data[optional_header_start + 6:optional_header_start + 8])[0]
-            end_pointer = 0x200
-            if _extractBitnessMagic(data, optional_header_start) == 0x14c:
-                normalized_pe_header = data[:optional_header_start + 0x34] + b"\x00" * 4 + data[optional_header_start + 0x38:]
-                end_pointer = optional_header_start + 0xf8 + num_sections * 0x28
-            elif _extractBitnessMagic(data, optional_header_start) == 0x8664:
-                normalized_pe_header = data[:optional_header_start + 0x30] + b"\x00" * 8 + data[optional_header_start + 0x38:]
-                end_pointer = optional_header_start + 0x108 + num_sections * 0x28
-            normalized_pe_header = normalized_pe_header[:end_pointer]
+            yield candidate_offset, optional_header_start
+
+
+def normalize_pe_header(data):
+    normalized_pe_header = data
+    for _, optional_header_start in iterate_pe_headers(data):
+        num_sections = struct.unpack("H", data[optional_header_start + 6:optional_header_start + 8])[0]
+        end_pointer = 0x200
+        if _extractBitnessMagic(data, optional_header_start) == 0x14c:
+            normalized_pe_header = data[:optional_header_start + 0x34] + b"\x00" * 4 + data[optional_header_start + 0x38:]
+            end_pointer = optional_header_start + 0xf8 + num_sections * 0x28
+        elif _extractBitnessMagic(data, optional_header_start) == 0x8664:
+            normalized_pe_header = data[:optional_header_start + 0x30] + b"\x00" * 8 + data[optional_header_start + 0x38:]
+            end_pointer = optional_header_start + 0x108 + num_sections * 0x28
+        normalized_pe_header = normalized_pe_header[:end_pointer]
     return normalized_pe_header
 
 
