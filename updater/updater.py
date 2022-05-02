@@ -65,6 +65,8 @@ class Updater:
         self.send_output("empty")
     
     def extract_source(self):
+        logging.info("Remove old repo before extracting source")
+        self.cleanup([self.roamerRepoPath])
         logging.info("Extract source code")
         extract(self.roamerZipPath, self.roamerRepoPath)
 
@@ -110,6 +112,7 @@ class Updater:
             subprocess.Popen(f"cmd /c {tmp_bat_path}", stdout=None)
 
     def update_whitelist(self, executable_path):
+        self.cleanup([self.userPath+"pe_header_whitelist.json"])
         subprocess.Popen(executable_path+" C:\\", cwd=self.userPath).wait()
 
     def replace_receiver(self, source):
@@ -124,16 +127,24 @@ class Updater:
             content = f_in.read()
         return self._to_base64(content)
 
-    def send_binaries(self):
+    def gather_data_and_send(self):
         logging.info("Send back binaries to Host")
-        result = {
-            "unpacker": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\unpacker\\dist\\main.exe"),
-            "receiver": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\receiver\\dist\\main.exe"),
-            "whitelister": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"),
-            "update_launcher": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\update_launcher.exe"),
-            "updater": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\updater.exe"),
-        }
-        self.send_output(result)
+        result = {}
+        if "compile_on_client" in self.tasks:
+            result.update({
+                "unpacker": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\unpacker\\dist\\main.exe"),
+                "receiver": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\receiver\\dist\\main.exe"),
+                "whitelister": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"),
+                "update_launcher": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\update_launcher.exe"),
+                "updater": self._get_content_of_file_as_base64(self.roamerRepoPath+"\\updater\\dist\\updater.exe"),
+            })
+        if "whitelist" in self.tasks:
+            result["pe_header_whitelist.json"] = self._get_content_of_file_as_base64(self.userPath+"pe_header_whitelist.json")
+
+        if len(result) != 0: 
+            self.send_output(result)
+        else:
+            self.send_nothing()
 
     def cleanup(self, list):
         for entry in list:
@@ -180,10 +191,8 @@ class Updater:
         if "whitelist" in self.tasks:
             self.update_whitelist(whitelister_source_path)
 
-        if "compile_on_client" in self.tasks and not self.isLocalUnpacking:
-            self.send_binaries()
-        elif not self.isLocalUnpacking:
-            self.send_nothing()
+        if not self.isLocalUnpacking:
+            self.gather_data_and_send()
 
         if "reinit_and_store" in self.tasks:
             if self.config["requires_cleaning_before_snapshot"]:
