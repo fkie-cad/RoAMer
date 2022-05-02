@@ -7,7 +7,7 @@ from unpacker.dumping.mapped_memory_filter import MappedMemoryFilter
 from unpacker.dumping.memmap_change_filter import MemMapChangeFilter
 from unpacker.dumping.only_executable_filter import OnlyExecutableFilter
 from unpacker.dumping.whitelist_filter import WhitelistFilter
-from unpacker.winwrapper import pe_tools
+from utility import pe_tools
 from unpacker.winwrapper.utilities import return_memory_map_for_pid, open_process, read_memory, close_handle, name_of_process
 
 

@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-from unpacker.winwrapper.pe_tools import normalize_pe_header
+from utility.pe_tools import normalize_pe_header
 from unpacker.winwrapper.utilities import read_memory, open_process, close_handle
 
 
