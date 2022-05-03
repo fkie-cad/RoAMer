@@ -25,9 +25,12 @@ UNPACKER_CONFIG = {
             # Have the unpacker reduce the candidate list of segments to dump based on 
             # these filters.
             "dump_filters": [
+                "own_pid_filter"
                 "pe_header_whitelist",
                 "memmap_change",
                 "only_executable_filter",
+                #"only_pe_header_filter",
+                #"only_executable_or_pe_header_filter",
                 "mapped_memory"
             ],
             # Control over merging of gapped segments
