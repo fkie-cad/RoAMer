@@ -9,7 +9,6 @@ from unpacker.dumping.memmap_change_filter import MemMapChangeFilter
 from unpacker.dumping.only_executable_filter import OnlyExecutableFilter
 from unpacker.dumping.only_executable_or_pe_header_filter import OnlyExecutableOrPeHeaderFilter
 from unpacker.dumping.only_pe_header_filter import OnlyPeHeaderFilter
-from unpacker.dumping.own_pid_filter import OwnPidFilter
 from unpacker.dumping.whitelist_filter import WhitelistFilter
 from utility import pe_tools
 from unpacker.winwrapper.utilities import return_memory_map_for_pid, open_process, read_memory, close_handle, name_of_process
@@ -41,8 +40,6 @@ class Dumper:
                 filters.append(OnlyExecutableOrPeHeaderFilter(self))
             elif filterName == "only_pe_header_filter":
                 filters.append(OnlyPeHeaderFilter(self))
-            elif filterName == "own_pid_filter":
-                filters.append(OwnPidFilter(self))
         return filters
 
     def update_filters(self):
