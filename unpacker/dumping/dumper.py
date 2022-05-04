@@ -1,6 +1,7 @@
 import logging
 from base64 import b64encode
 from collections import Counter
+import os
 
 from unpacker.dumping.dump_task import DumpTask
 from unpacker.dumping.mapped_memory_filter import MappedMemoryFilter
@@ -8,7 +9,6 @@ from unpacker.dumping.memmap_change_filter import MemMapChangeFilter
 from unpacker.dumping.only_executable_filter import OnlyExecutableFilter
 from unpacker.dumping.only_executable_or_pe_header_filter import OnlyExecutableOrPeHeaderFilter
 from unpacker.dumping.only_pe_header_filter import OnlyPeHeaderFilter
-from unpacker.dumping.own_pid_filter import OwnPidFilter
 from unpacker.dumping.whitelist_filter import WhitelistFilter
 from utility import pe_tools
 from unpacker.winwrapper.utilities import return_memory_map_for_pid, open_process, read_memory, close_handle, name_of_process
@@ -40,8 +40,6 @@ class Dumper:
                 filters.append(OnlyExecutableOrPeHeaderFilter(self))
             elif filterName == "only_pe_header_filter":
                 filters.append(OnlyPeHeaderFilter(self))
-            elif filterName == "own_pid_filter":
-                filters.append(OwnPidFilter(self))
         return filters
 
     def update_filters(self):
@@ -55,6 +53,10 @@ class Dumper:
             num_segments += task.get_num_segments()
             mem_size += task.get_total_memory_size()
         return {"num_tasks": len(tasks), "num_segments": num_segments, "total_memory_size": mem_size}
+    
+    def _add_stats_for_tasks(self, dict1, dict2):
+        for key in dict1:
+            dict1[key] += dict2[key]
 
     def _calculate_stats_for_dump(self, dumps):
         num_dummies = 0
@@ -73,14 +75,23 @@ class Dumper:
     def get_dumps(self, mem_map_changes, modules):
         self.mem_map_changes = mem_map_changes
         self.modules = modules
-        logging.info("Creating dump tasks")
-        dump_tasks = self._create_dump_tasks(mem_map_changes, modules)
-        self.stats["dumper"]["initial_tasks"] = self._calculate_stats_for_tasks(dump_tasks)
-        logging.info("Filtering dump tasks")
-        filtered = self._filter_tasks(dump_tasks)
-        self.stats["dumper"]["filtered_tasks"] = self._calculate_stats_for_tasks(filtered)
+        logging.info("Creating dump tasks for own pid")
+        #TODO: will update work here?
+        dump_tasks_own = self._create_dump_tasks(mem_map_changes, modules, True)
+        self.stats["dumper"]["initial_tasks"] = self._calculate_stats_for_tasks(dump_tasks_own)
+        logging.info("Filtering dump tasks for own pid")
+        filtered_own = self._filter_tasks(dump_tasks_own)
+        self.stats["dumper"]["filtered_tasks"] = self._calculate_stats_for_tasks(filtered_own)
+
+        logging.info("Creating dump tasks for other pids")
+        dump_tasks_other = self._create_dump_tasks(mem_map_changes, modules, False)
+        self._add_stats_for_tasks(self.stats["dumper"]["initial_tasks"], self._calculate_stats_for_tasks(dump_tasks_other))
+        logging.info("Filtering dump tasks for other pids")
+        filtered_other = self._filter_tasks(dump_tasks_other)
+        self._add_stats_for_tasks(self.stats["dumper"]["filtered_tasks"], self._calculate_stats_for_tasks(filtered_other))
+
         logging.info("Dumping remaining tasks")
-        dumped = self._dump(filtered)
+        dumped = self._dump(filtered_own+filtered_other)
         self.stats["dumper"]["dumped"] = self._calculate_stats_for_dump(dumped)
         self.stats["dumper"]["task_creation"] = dict(self.dump_task_cases)
         return dumped
@@ -101,9 +112,13 @@ class Dumper:
     def _check_address_is_module_start(self, addr, current_modules):
         return addr in [m[0] for m in current_modules]
 
-    def _create_dump_tasks(self, mem_map_changes, modules):
+    def _create_dump_tasks(self, mem_map_changes, modules, for_own_pid):
+        own_pid = os.getpid()
         tasks = []
-        pids_of_interest = list(set(mem_map_changes.keys()))
+        if for_own_pid:
+            pids_of_interest = (own_pid,)
+        else:
+            pids_of_interest = list(set(mem_map_changes.keys()) - set((own_pid,)))
         for pid in sorted(pids_of_interest):
             dump_task = None
             current_modules = modules[pid] if pid in modules else []
