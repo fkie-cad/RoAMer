@@ -122,14 +122,19 @@ class RoAMer:
         if returned_raw_data:
             if returned_raw_data == b'"RUNNING"':
                 LOG.info("Unpacker status: {}".format(returned_raw_data))
+            elif returned_raw_data.startswith(b'"EXCEPTION'):
+                LOG.error(json.loads(returned_raw_data))
             else:
                 LOG.warning("Unpacker status unknown, this should be investigated!")
                 LOG.info("{}".format(returned_raw_data))
         # receive actual result output
         returned_raw_data = self.communicate_with_unpacker()
         if returned_raw_data:
-            LOG.info("persisting dumps ...")
-            persist_data(target_path, json.loads(returned_raw_data), self.ident)
+            if returned_raw_data.startswith(b'"EXCEPTION'):
+                LOG.error(json.loads(returned_raw_data))
+            else:
+                LOG.info("persisting dumps ...")
+                persist_data(target_path, json.loads(returned_raw_data), self.ident)
         else:
             LOG.info("Nothing returned by unpacker")
         self.vm_controller.stop_vm(self.vm_name)
