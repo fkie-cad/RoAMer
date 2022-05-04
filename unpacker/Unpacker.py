@@ -13,7 +13,17 @@ from unpacker.winwrapper.utilities import getUserPath, startAsLibrary, startAsEx
 class Unpacker:
 
     def __init__(self, sample, config):
-        self.monitorManager = MonitorManager(config["monitoring_switches"])
+        self.sample = sample
+        self.userPath = getUserPath()
+        self.samplePath = os.path.join(self.userPath, "Desktop")
+        
+        self.fileType = self.determine_file_type(sample)
+
+        self.sampleName = generate_random_samplename()
+        logging.info("copying sample to: %s", os.path.join(self.samplePath, self.sampleName))
+        with open(os.path.join(self.samplePath, self.sampleName), "wb") as fOut:
+            fOut.write(self.sample)
+        
         self.userInteractor = UserInteractor()
         self.timeTracker = TimeTracker()
         if "additional_pe_whitelist" in config.keys():
@@ -21,15 +31,12 @@ class Unpacker:
         else:
             additionalWhitelist = {}
         self.dumper = Dumper(config["dump_filters"], additionalWhitelist, config["discard_reserved_segment_size"])
-        self.sample = sample
         self.sampleName = ""
         self.config = config
         self.monitoringIntervals = config["monitoring_intervals"]
         self.monitoringIntervalLength = config["monitoring_interval_length"]
         self.spoofUser = config["spoof_user"]
-        self.userPath = getUserPath()
-        self.samplePath = os.path.join(self.userPath, "Desktop")
-        self.fileType = self.determine_file_type(sample)
+        self.monitorManager = MonitorManager(config["monitoring_switches"])
 
     def determine_file_type(self, sample):
         if check_if_library(sample):
@@ -39,10 +46,6 @@ class Unpacker:
     def starting_phase(self):
         self.dumper.update_filters()
         self.timeTracker.start_monitoring()
-        self.sampleName = generate_random_samplename()
-        logging.info("copying sample to: %s", os.path.join(self.samplePath, self.sampleName))
-        with open(os.path.join(self.samplePath, self.sampleName), "wb") as fOut:
-            fOut.write(self.sample)
         time.sleep(self.config["sample_start_delay"])
         if self.fileType == "dll":
             startAsLibrary(os.path.join(self.samplePath, self.sampleName))
