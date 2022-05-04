@@ -220,13 +220,18 @@ class Deployer:
         if returned_raw_data:
             if returned_raw_data == b'"RUNNING"':
                 LOG.info("Updater status: {}".format(returned_raw_data))
+
+            elif returned_raw_data.startswith(b'"EXCEPTION'):
+                LOG.error(json.loads(returned_raw_data))
             else:
                 LOG.warning("Updater status unknown, this should be investigated!")
                 LOG.info("{}".format(returned_raw_data))
 
         # receive actual result output
         returned_raw_data = self.communicate_with_updater()
-        if returned_raw_data and returned_raw_data!=b'"empty"':
+        if returned_raw_data and returned_raw_data.startswith(b'"EXCEPTION'):
+            LOG.error(json.loads(returned_raw_data))
+        elif returned_raw_data and returned_raw_data!=b'"empty"':
             files = json.loads(returned_raw_data)
             results_folder = os.path.join(self.source_folder, "deployer_results")
             if os.path.exists(results_folder):

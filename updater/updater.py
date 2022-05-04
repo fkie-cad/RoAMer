@@ -7,6 +7,7 @@ import os
 import shutil
 import socket
 import subprocess
+import traceback
 import logging
 from ctypes import windll
 
@@ -166,41 +167,46 @@ class Updater:
         if not self.isLocalUnpacking:
             self.send_output("RUNNING")
 
-        if "compile_on_client" in self.tasks:
-            self.extract_source()
-            self.compile_source()
-            receiver_source_path = self.roamerRepoPath+"\\receiver\\dist\\main.exe"
-            whitelister_source_path = self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"
-            strict_cleanup_list += [self.roamerRepoPath, self.roamerZipPath]
-        
-        if "receiver_bin_to_client" in self.tasks:
-            receiver_source_path = self.userPath+"new_receiver.exe"
-            strict_cleanup_list += [receiver_source_path]
+        try:
+            if "compile_on_client" in self.tasks:
+                self.extract_source()
+                self.compile_source()
+                receiver_source_path = self.roamerRepoPath+"\\receiver\\dist\\main.exe"
+                whitelister_source_path = self.roamerRepoPath+"\\whitelister\\dist\\PEHeaderWhitelister.exe"
+                strict_cleanup_list += [self.roamerRepoPath, self.roamerZipPath]
+            
+            if "receiver_bin_to_client" in self.tasks:
+                receiver_source_path = self.userPath+"new_receiver.exe"
+                strict_cleanup_list += [receiver_source_path]
 
-        if "overwrite_receiver" in self.tasks:
-            now = time.time()
-            sleep_time = start_time + receiver_termination_duration - now
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            self.replace_receiver(receiver_source_path)
+            if "overwrite_receiver" in self.tasks:
+                now = time.time()
+                sleep_time = start_time + receiver_termination_duration - now
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                self.replace_receiver(receiver_source_path)
 
-        if "whitelister_bin_to_client" in self.tasks:
-            whitelister_source_path = self.userPath+"whitelister.exe"
-            strict_cleanup_list += [whitelister_source_path]
+            if "whitelister_bin_to_client" in self.tasks:
+                whitelister_source_path = self.userPath+"whitelister.exe"
+                strict_cleanup_list += [whitelister_source_path]
 
-        if "whitelist" in self.tasks:
-            self.update_whitelist(whitelister_source_path)
+            if "whitelist" in self.tasks:
+                self.update_whitelist(whitelister_source_path)
 
-        if not self.isLocalUnpacking:
-            self.gather_data_and_send()
+            if not self.isLocalUnpacking:
+                self.gather_data_and_send()
 
-        if "reinit_and_store" in self.tasks:
-            if self.config["requires_cleaning_before_snapshot"]:
-                self.cleanup(strict_cleanup_list)
-            self.remove_this_script()
-            self.restart_receiver()
+            if "reinit_and_store" in self.tasks:
+                if self.config["requires_cleaning_before_snapshot"]:
+                    self.cleanup(strict_cleanup_list)
+                self.remove_this_script()
+                self.restart_receiver()
 
-
+        except Exception as e:
+            if not self.isLocalUnpacking:
+                self.send_output(f"EXCEPTION from client:\n{traceback.format_exc()}")
+            else:
+                print(traceback.format_exc())
 
 
 
