@@ -1,4 +1,5 @@
 import argparse
+from copy import deepcopy
 import uuid
 import psutil
 import importlib
@@ -38,6 +39,7 @@ class IdLoggingStream:
 
 
 def worker(work_queue, done_queue, config):
+    print("worker up", str(config))
     for task in iter(work_queue.get, 'STOP'):
         try:
             print(task)
@@ -78,31 +80,51 @@ def run_task(task, config, logging_handler):
 
 
 
-worker_configs = ["config", "config_clone1"]
-
-
+WORKER_BASE_CONFIG = "config"
+CLONE_PARTIAL_CONFIGS = "clone_configs"
 
 
 #FIXME: use global location
 LOCKFILE_NAME = "queue.lock"
 LOCKFILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), LOCKFILE_NAME)
 
+class FakeConfig:
+    def __init__(self, input_config):
+        for key in input_config.__dict__.keys():
+            if not key.startswith("__") and key.isupper():
+                setattr(self, key, deepcopy(getattr(input_config, key)))
+
 class Server:
     def __init__(self):
         self.get_listener_and_lock()
-        self.clients = [] 
         self.start_worker()
+
+        #Network: 
+        self.clients = [] 
         Thread(target=self.handle_messages_from_workers).start()
         #Thread(target=self.handle_incomming_connections).start()
         self.handle_incomming_connections() # this will block
+
+    def get_loaded_worker_configs(self):
+        base = importlib.import_module(WORKER_BASE_CONFIG)
+        result = [base]
+        partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
+        for partial in partials.PARTIAL_CLONE_CONFIGS:
+            new_module = FakeConfig(base)
+            new_module.VM_CONTROLLER = partial["VM_CONTROLLER"]
+            new_module.VM_NAME = partial["VM_NAME"]
+            new_module.SNAPSHOT_NAME = partial["SNAPSHOT_NAME"]
+            new_module.UNPACKER_CONFIG["host_port"] = partial["host_port"]
+            new_module.UNPACKER_CONFIG["guest_ip"] = partial["guest_ip"]
+            result.append(new_module)
+        return result
 
     def start_worker(self):
         # Start Worker
         self.work_queue = Queue()
         self.done_queue = Queue()
         processes = []
-        for config in worker_configs:
-            loaded_config = importlib.import_module(config)
+        for loaded_config in self.get_loaded_worker_configs():
             p = Process(target=worker, args=(self.work_queue, self.done_queue, loaded_config))
             p.start()
             processes.append(p)
