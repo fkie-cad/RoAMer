@@ -7,9 +7,9 @@ import json
 import logging
 import os
 from threading import Thread
-from queue import Queue
 import time
 import traceback
+from multiprocessing import Process, Queue
 from multiprocessing.connection import Client, Listener
 
 from roamer.RoAMer import RoAMer
@@ -17,6 +17,8 @@ from roamer.RoAMer import RoAMer
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
 FORMATER = logging.Formatter("%(asctime)-15s %(message)s")
+
+#https://stackoverflow.com/questions/22235426/python-multiprocessing-worker-queue
 
 
 ##### Settings #####
@@ -38,6 +40,11 @@ def get_current_server_lock_data():
             return
         return server_data
     
+
+
+
+
+
 ##### Server #####
 class IdLoggingStream:
     def __init__(self, id, send_method):
@@ -135,13 +142,13 @@ class Server:
         # Start Worker
         self.work_queue = Queue()
         self.done_queue = Queue()
-        worker_threads = []
+        processes = []
         for loaded_config in self.get_loaded_worker_configs():
-            p = Thread(target=worker, args=(self.work_queue, self.done_queue, loaded_config))
+            p = Process(target=worker, args=(self.work_queue, self.done_queue, loaded_config))
             p.start()
-            worker_threads.append(p)
+            processes.append(p)
             #work_queue.put('STOP')
-        # for p in worker_threads:
+        # for p in processes:
         #     p.join()    
         #     done_queue.put('STOP')
         # for status in iter(done_queue.get, 'STOP'): 
