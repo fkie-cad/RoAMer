@@ -65,6 +65,9 @@ UNPACKER_CONFIG = {
 POST_PROCESSING_CONFIG = {
     # possible values: "if_ascii", "escape", "never"
     "human_readable_process_names": "if_ascii", 
+    "post_processing_steps": [
+        "pe_carving",
+    ],
 }
 
 

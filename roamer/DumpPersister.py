@@ -45,11 +45,12 @@ def _strip_trailing_zeroes(data):
 def _persist_dump(dump, result_path, config):
     merged_segments = _merge_dump_segments(dump)
     offsets = set()
-    offsets.add(0)
     # Always dump original file
+    offsets.add(0)
     # Add offsets of all contained PE files
-    for offset, _ in iterate_pe_headers(merged_segments):
-        offsets.add(offset)
+    if "pe_carving" in config["post_processing_steps"]:
+        for offset, _ in iterate_pe_headers(merged_segments):
+            offsets.add(offset)
     for offset in offsets:
         dump_name = "%d_0x%08x" % (dump["pid"], dump["base"]+offset)
         dump_path = os.path.join(result_path, dump_name)
