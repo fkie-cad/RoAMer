@@ -16,7 +16,10 @@ class RoAMer:
 
     def __init__(self, roamer_config, headless, vm, snapshot, ident):
         self.unpacker_config = roamer_config.UNPACKER_CONFIG
-        self.post_processing_config = roamer_config.POST_PROCESSING_CONFIG
+        if hasattr(roamer_config, "POST_PROCESSING_CONFIG"):
+            self.post_processing_config = roamer_config.POST_PROCESSING_CONFIG
+        else:
+            self.post_processing_config = {}
         self.bins = roamer_config.BIN_ROOT
         self.vm_name = roamer_config.VM_NAME if not vm else vm
         self.snapshotName = roamer_config.SNAPSHOT_NAME if not snapshot else snapshot

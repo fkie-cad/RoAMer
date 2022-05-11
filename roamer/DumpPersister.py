@@ -48,7 +48,8 @@ def _persist_dump(dump, result_path, config):
     # Always dump original file
     offsets.add(0)
     # Add offsets of all contained PE files
-    if "pe_carving" in config["post_processing_steps"]:
+    post_processing_steps = config.get("post_processing_steps", [])
+    if "pe_carving" in post_processing_steps:
         for offset, _ in iterate_pe_headers(merged_segments):
             offsets.add(offset)
     for offset in offsets:
@@ -87,7 +88,8 @@ def _persist_dumps(config_result, result_path, config):
     for dump in config_result["dumps"]:
         dump_info = _persist_dump(dump, result_path, config)
         dump_stats[dump_info["dump_name"]] = dump_info
-        dump_info["process_name"] = _decode_process_name(dump_info["process_name"], config["human_readable_process_names"])
+        process_name_config = config.get("human_readable_process_names", "never")
+        dump_info["process_name"] = _decode_process_name(dump_info["process_name"], process_name_config)
     _persist_as_json(dump_stats, os.path.join(result_path, "dump_stats.json"))
 
 
