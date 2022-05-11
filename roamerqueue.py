@@ -64,15 +64,15 @@ class IdLoggingStream:
         pass
 
 
-def worker(work_queue, done_queue, config):
-    print("worker up", str(config))
+def worker(work_queue, done_queue, partial_config):
+    print("worker up", str(partial_config))
     for task in iter(work_queue.get, 'STOP'):
         try:
             print(task)
             logging_handler = logging.StreamHandler(IdLoggingStream(task["id"], done_queue.put))
             logging_handler.terminator = ""
             logging_handler.setFormatter(FORMATER)
-            run_task(task, config, logging_handler)
+            run_task(task, partial_config, logging_handler)
             done_queue.put(
                 {
                     "state": "finished",
@@ -89,7 +89,7 @@ def worker(work_queue, done_queue, config):
             )
 
 
-def run_task(task, config, logging_handler):
+def run_task(task, partial_config, logging_handler):
 
     #loggers = ["roamer.VmController", "roamer", "roamer.RoAMer", "roamer.CuckooVirtualBox"]
     loggers = ["roamer"]
@@ -97,6 +97,8 @@ def run_task(task, config, logging_handler):
         logger = logging.getLogger(logger_name)
         logger.addHandler(logging_handler)
 
+    loaded_base_config = importlib.import_module(task["config"])
+    config = appy_partial_on_base_config(loaded_base_config, partial_config)
     roamer = RoAMer(config, task["headless"], task["vm"], task["snapshot"], task["ident"])
     roamer.run(task["sample"])
 
@@ -109,6 +111,24 @@ class FakeConfig:
         for key in input_config.__dict__.keys():
             if not key.startswith("__") and key.isupper():
                 setattr(self, key, deepcopy(getattr(input_config, key)))
+
+def partial_from_base_config(base_config):
+    partial = {}
+    partial["VM_CONTROLLER"] = base_config.VM_CONTROLLER 
+    partial["VM_NAME"] = base_config.VM_NAME
+    partial["SNAPSHOT_NAME"] = base_config.SNAPSHOT_NAME
+    partial["host_port"] = base_config.UNPACKER_CONFIG["host_port"]
+    partial["guest_ip"] = base_config.UNPACKER_CONFIG["guest_ip"]
+    return partial
+
+def appy_partial_on_base_config(base, partial):
+    new_config = FakeConfig(base)
+    new_config.VM_CONTROLLER = partial["VM_CONTROLLER"]
+    new_config.VM_NAME = partial["VM_NAME"]
+    new_config.SNAPSHOT_NAME = partial["SNAPSHOT_NAME"]
+    new_config.UNPACKER_CONFIG["host_port"] = partial["host_port"]
+    new_config.UNPACKER_CONFIG["guest_ip"] = partial["guest_ip"]
+    return new_config
 
 class Server:
     def __init__(self):
@@ -124,27 +144,18 @@ class Server:
         finally:
             unlock_server()
 
-    def get_loaded_worker_configs(self):
+    def get_partial_configs(self):
         base = importlib.import_module(WORKER_BASE_CONFIG)
-        result = [base]
         partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
-        for partial in partials.PARTIAL_CLONE_CONFIGS:
-            new_module = FakeConfig(base)
-            new_module.VM_CONTROLLER = partial["VM_CONTROLLER"]
-            new_module.VM_NAME = partial["VM_NAME"]
-            new_module.SNAPSHOT_NAME = partial["SNAPSHOT_NAME"]
-            new_module.UNPACKER_CONFIG["host_port"] = partial["host_port"]
-            new_module.UNPACKER_CONFIG["guest_ip"] = partial["guest_ip"]
-            result.append(new_module)
-        return result
+        return partials.PARTIAL_CLONE_CONFIGS+[partial_from_base_config(base)]
 
     def start_worker(self):
         # Start Worker
         self.work_queue = Queue()
         self.done_queue = Queue()
         processes = []
-        for loaded_config in self.get_loaded_worker_configs():
-            p = Process(target=worker, args=(self.work_queue, self.done_queue, loaded_config))
+        for partial_config in self.get_partial_configs():
+            p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
             p.start()
             processes.append(p)
             #work_queue.put('STOP')
@@ -225,7 +236,7 @@ def get_files(target_path):
         LOG.exception("uncaught exception")
     return samples
 
-def unpack_samples(samples, headless, ident, block):
+def unpack_samples(samples, config, headless, ident, block):
     server_data = get_current_server_lock_data()
     if not server_data:
         raise ValueError("Server not available")
@@ -235,7 +246,7 @@ def unpack_samples(samples, headless, ident, block):
 
     task_base = {
         "sample": None,
-        "config": None,
+        "config": config,
         "headless": headless,
         "vm": "",
         "snapshot": "",
@@ -274,6 +285,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(dest="action", required=True)
     send_parser = subparsers.add_parser("unpack")
     send_parser.add_argument('Samples', metavar='Sample', type=str, help='Path to sample or folder of samples')
+    send_parser.add_argument('--config', action='store', help="Which config shall be used?", default=WORKER_BASE_CONFIG)
     send_parser.add_argument('--no-headless', action='store_false', help='Start the Sandbox in headless mode', dest="headless")
     send_parser.add_argument('--ident', action="store", help="Configure an identifier for the output.", default="")
     send_parser.add_argument('--block', action="store_true")
@@ -285,5 +297,5 @@ if __name__ == "__main__":
     if args.action == "server":
         start_server_safe()
     elif args.action == "unpack":
-        unpack_samples(args.Samples, args.headless, args.ident, args.block)
+        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.block)
 
