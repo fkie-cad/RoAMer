@@ -106,13 +106,13 @@ class RoAMer:
             connection.close()
             sock.close()
 
-    def run_folder(self, target_path):
+    def run_folder(self, target_path, output_folder = None):
         for filename in os.listdir(target_path):
             sample = os.path.join(target_path, filename)
             if os.path.isfile(sample):
-                self.run_file(sample)
+                self.run_file(sample, output_folder=output_folder)
 
-    def run_file(self, target_path):
+    def run_file(self, target_path, output_folder = None):
         LOG.info("Unpacking %s", target_path)
         unpacker_files = self.gather_files_for_unpacker(target_path)
         self.prepare_vm()
@@ -134,18 +134,22 @@ class RoAMer:
                 LOG.error(json.loads(returned_raw_data))
             else:
                 LOG.info("persisting dumps ...")
-                persist_data(target_path, json.loads(returned_raw_data), self.ident)
+                if output_folder is None:
+                    output_path = target_path
+                else:
+                    output_path = os.path.join(output_folder, os.path.basename(target_path))
+                persist_data(output_path, json.loads(returned_raw_data), self.ident)
         else:
             LOG.info("Nothing returned by unpacker")
         self.vm_controller.stop_vm(self.vm_name)
         time.sleep(5)
 
-    def run(self, target_path):
+    def run(self, target_path, output_folder = None):
         try:
             if os.path.isdir(target_path):
-                self.run_folder(target_path)
+                self.run_folder(target_path, output_folder=output_folder)
             elif os.path.isfile(target_path):
-                self.run_file(target_path)
+                self.run_file(target_path, output_folder=output_folder)
             else:
                 LOG.error("Target was neither file nor directory, aborting.")
         except Exception:
