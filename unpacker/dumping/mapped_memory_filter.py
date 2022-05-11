@@ -23,5 +23,5 @@ class MappedMemoryFilter:
                 all_memory_size += segment.size
             task.segments = filtered_segments
             filtered.append(task)
-        logging.info("removed %d/%d bytes from dump tasks by removing mapped memory.", len(tasks) - len(filtered), len(tasks))
+        logging.info("removed %d/%d bytes from dump tasks by removing mapped memory.", filtered_memory_size, all_memory_size)
         return filtered
