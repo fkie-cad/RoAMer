@@ -60,6 +60,14 @@ UNPACKER_CONFIG = {
     ]
 }
 
+
+# Configure behaviour of DumpPersister
+POST_PROCESSING_CONFIG = {
+    # possible values: "if_ascii", "escape", "never"
+    "human_readable_process_names": "if_ascii", 
+}
+
+
 # Virtualization related
 ## VM_CONTROLLER: choose "VboxManageController" for VirtualBox or "KvmManageController" for KVM
 VM_CONTROLLER = "VboxManageController"

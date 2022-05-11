@@ -8,9 +8,10 @@ from utility.pe_tools import iterate_pe_headers
 
 
 class DumpPersister:
-    def __init__(self, prefix, returned_data):
+    def __init__(self, prefix, returned_data, config):
         self._folder_name = prefix + "_dumps_" + datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
         self._returned_data = returned_data
+        self.config = config
         self._persist_data()
 
     def _persist_data(self):
@@ -31,7 +32,7 @@ class DumpPersister:
         _persist_as_json(self._returned_data[config_name]["stats"], os.path.join(result_path, "vm_stats.json"))
         _persist_as_json(self._returned_data[config_name]["observations"],
                          os.path.join(result_path, "observations.json"))
-        _persist_dumps(self._returned_data[config_name], result_path)
+        _persist_dumps(self._returned_data[config_name], result_path, self.config)
 
 
 def _strip_trailing_zeroes(data):
@@ -41,7 +42,7 @@ def _strip_trailing_zeroes(data):
     return data
 
 
-def _persist_dump(dump, result_path):
+def _persist_dump(dump, result_path, config):
     merged_segments = _merge_dump_segments(dump)
     offsets = set()
     offsets.add(0)
@@ -67,12 +68,25 @@ def _persist_dump(dump, result_path):
     return dump_info
 
 
-def _persist_dumps(config_result, result_path):
+def _decode_process_name(b64_process_name, human_readable_config):
+    if human_readable_config == "if_ascii":
+        decoded_bytes = base64.b64decode(b64_process_name)
+        if decoded_bytes.isascii():
+            process_name = decoded_bytes.decode("ascii")
+        else:
+            process_name = b64_process_name
+    elif human_readable_config == "escape":
+        process_name = str(base64.b64decode(b64_process_name))
+    else: # especially if it is set to "never"
+        process_name = b64_process_name
+    return process_name
+
+def _persist_dumps(config_result, result_path, config):
     dump_stats = {}
     for dump in config_result["dumps"]:
-        dump_info = _persist_dump(dump, result_path)
+        dump_info = _persist_dump(dump, result_path, config)
         dump_stats[dump_info["dump_name"]] = dump_info
-        dump_info["process_name"] = str(base64.b64decode(dump_info["process_name"]))
+        dump_info["process_name"] = _decode_process_name(dump_info["process_name"], config["human_readable_process_names"])
     _persist_as_json(dump_stats, os.path.join(result_path, "dump_stats.json"))
 
 
@@ -119,6 +133,6 @@ def _get_protection_flags(flags):
     return (protection + " " + modifier).strip()
 
 
-def persist_data(sample_path, returned_data, ident):
+def persist_data(sample_path, returned_data, ident, config):
     prefix = sample_path + "_" + ident if ident else sample_path
-    DumpPersister(prefix, returned_data)
+    DumpPersister(prefix, returned_data, config)
