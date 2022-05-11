@@ -100,7 +100,7 @@ def run_task(task, partial_config, logging_handler):
     loaded_base_config = importlib.import_module(task["config"])
     config = appy_partial_on_base_config(loaded_base_config, partial_config)
     roamer = RoAMer(config, task["headless"], task["vm"], task["snapshot"], task["ident"])
-    roamer.run(task["sample"])
+    roamer.run(task["sample"], output_folder=task["output_folder"])
 
     for logger_name in loggers:
         logger = logging.getLogger(logger_name)
@@ -236,13 +236,16 @@ def get_files(target_path):
         LOG.exception("uncaught exception")
     return samples
 
-def unpack_samples(samples, config, headless, ident, block):
+def unpack_samples(samples, config, headless, ident, output_folder, block):
     server_data = get_current_server_lock_data()
     if not server_data:
         raise ValueError("Server not available")
     connection = connect_to_server(server_data)
 
     assert connection
+
+    if output_folder is not None:
+        output_folder = os.path.abspath(output_folder)
 
     task_base = {
         "sample": None,
@@ -251,6 +254,7 @@ def unpack_samples(samples, config, headless, ident, block):
         "vm": "",
         "snapshot": "",
         "id": None,
+        "output_folder": output_folder,
         "ident": ident,
     }
     samples = get_files(samples)
@@ -288,6 +292,7 @@ if __name__ == "__main__":
     send_parser.add_argument('--config', action='store', help="Which config shall be used?", default=WORKER_BASE_CONFIG)
     send_parser.add_argument('--no-headless', action='store_false', help='Start the Sandbox in headless mode', dest="headless")
     send_parser.add_argument('--ident', action="store", help="Configure an identifier for the output.", default="")
+    send_parser.add_argument('--output', action="store", help="Specify a custom output folder for the dumps", default=None)
     send_parser.add_argument('--block', action="store_true")
     server_parser = subparsers.add_parser("server")
 
@@ -297,5 +302,5 @@ if __name__ == "__main__":
     if args.action == "server":
         start_server_safe()
     elif args.action == "unpack":
-        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.block)
+        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block)
 
