@@ -16,6 +16,10 @@ class RoAMer:
 
     def __init__(self, roamer_config, headless, vm, snapshot, ident):
         self.unpacker_config = roamer_config.UNPACKER_CONFIG
+        if hasattr(roamer_config, "POST_PROCESSING_CONFIG"):
+            self.post_processing_config = roamer_config.POST_PROCESSING_CONFIG
+        else:
+            self.post_processing_config = {}
         self.bins = roamer_config.BIN_ROOT
         self.vm_name = roamer_config.VM_NAME if not vm else vm
         self.snapshotName = roamer_config.SNAPSHOT_NAME if not snapshot else snapshot
@@ -138,7 +142,7 @@ class RoAMer:
                     output_path = target_path
                 else:
                     output_path = os.path.join(output_folder, os.path.basename(target_path))
-                persist_data(output_path, json.loads(returned_raw_data), self.ident)
+                persist_data(output_path, json.loads(returned_raw_data), self.ident, self.post_processing_config)
         else:
             LOG.info("Nothing returned by unpacker")
         self.vm_controller.stop_vm(self.vm_name)
