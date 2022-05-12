@@ -183,7 +183,13 @@ class WorkerHandler:
     def clear_queue(self):
         try:
             while True:
-                self.work_queue.get_nowait()
+                task = self.work_queue.get_nowait()
+                self.done_queue.put(
+                    {
+                        "state": "cleared",
+                        "id": task["id"],
+                    }
+                )
         except Empty:
             pass 
 
@@ -243,9 +249,16 @@ class Server:
             }
             json.dump(server_data, f)
 
-    ## related to clients ##
     def on_client_message(self, message, client_id):
-        self.worker_handler.enqueue_job(message)
+        try:
+            if message["task"] == "unpack":
+                self.worker_handler.enqueue_job(message)
+            elif message["task"] == "clear-queue":
+                self.worker_handler.clear_queue()
+            else:
+                logging.error("Error handling message from client: unknown task")
+        except Exception:
+            logging.error("Error handling message from client\n"+traceback.format_exc())
 
     def on_worker_message(self, message, worker_id):
         self.client_handler.send_message_to_clients(message)
@@ -311,11 +324,20 @@ def monitor_ids(connection, ids):
                 print(message["record"], flush=True)
             else:
                 print(message, flush=True)
-                ids.remove(message["id"])
+                if message["state"] not in ["started", "enqueued"]:
+                    ids.remove(message["id"])
         if not ids:
             break
     if ids:
         logging.warning(f"Server closed connection but there are still jobs to monitor: {ids}")
+
+
+def clear_queue(connection):
+    connection.send(
+        {
+            "task":"clear-queue"
+        }
+    )
 
 
 def unpack_samples(samples, config, headless, ident, output_folder, block):
@@ -324,6 +346,7 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
             output_folder = os.path.abspath(output_folder)
 
         task_base = {
+            "task": "unpack",
             "sample": None,
             "config": config,
             "headless": headless,
@@ -366,6 +389,7 @@ if __name__ == "__main__":
     server_parser = subparsers.add_parser("server")
     monitor_parser = subparsers.add_parser("monitor")
     monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to Monitor')
+    clear_parser = subparsers.add_parser("clear-queue")
 
     args = parser.parse_args()
 
@@ -376,5 +400,9 @@ if __name__ == "__main__":
     elif args.action == "monitor":
         with connect_to_server() as connection: # might throw
             monitor_ids(connection, list( args.job_ids))
+    elif args.action == "clear-queue":
+        with connect_to_server() as connection: # might throw
+            clear_queue(connection)
+            
 
 
