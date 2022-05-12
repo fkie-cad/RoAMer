@@ -1,5 +1,6 @@
 import argparse
 from copy import deepcopy
+from queue import Empty
 import uuid
 import psutil
 import importlib
@@ -179,6 +180,12 @@ class WorkerHandler:
     def enqueue_job(self, job):
         self.work_queue.put(job)
 
+    def clear_queue(self):
+        try:
+            while True:
+                self.work_queue.get_nowait()
+        except Empty:
+            pass 
 
     def run_handle_messages(self):
         for message in iter(self.done_queue.get, "STOP"):
