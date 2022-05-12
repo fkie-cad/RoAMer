@@ -13,6 +13,7 @@ from multiprocessing import Process, Queue
 from multiprocessing.connection import Client, Listener
 
 from roamer.RoAMer import RoAMer
+from roamer.VmController import VmController
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
@@ -64,6 +65,9 @@ class IdLoggingStream:
     def close(self):
         pass
 
+def stop_vm(partial_config):
+    vm_controller = VmController.factory(partial_config["VM_CONTROLLER"], True)
+    vm_controller.stop_vm(partial_config["VM_NAME"])
 
 def worker(work_queue, done_queue, partial_config):
     print("worker up", str(partial_config))
@@ -136,6 +140,7 @@ class WorkerHandler:
 
     def __init__(self, on_message):
         self.onMessage = on_message
+        self.partial_configs = self._get_partial_configs()
 
 
     def _get_partial_configs(self):
@@ -143,12 +148,25 @@ class WorkerHandler:
         partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
         return partials.PARTIAL_CLONE_CONFIGS+[partial_from_base_config(base)]
 
+    def stop_all_vms(self):
+        for partial_config in self.partial_configs:
+            try:
+                stop_vm(partial_config)
+            except Exception:
+                pass
+        time.sleep(2)
+        for partial_config in self.partial_configs:
+            try:
+                stop_vm(partial_config)
+            except Exception:
+                pass
+
     def start_workers(self):
         # Start Worker
         self.work_queue = Queue()
         self.done_queue = Queue()
         processes = []
-        for partial_config in self._get_partial_configs():
+        for partial_config in self.partial_configs:
             p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
             p.start()
             processes.append(p)
@@ -225,6 +243,9 @@ class Server:
     def on_worker_message(self, message, worker_id):
         self.client_handler.send_message_to_clients(message)
 
+    def cleanup(self):
+        unlock_server()
+        self.worker_handler.stop_all_vms()
 
 
 def unlock_server():
@@ -240,7 +261,7 @@ def start_server_safe():
             server = Server()
             server.run() # blocks
         finally:
-            unlock_server()
+            server.cleanup()
     else:
         LOG.warning("Server is already running. Did not start a new server.")
 
