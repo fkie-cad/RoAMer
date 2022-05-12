@@ -37,7 +37,13 @@ def get_current_server_lock_data():
         if not psutil.pid_exists(pid):
             return None
         return server_data
-    
+
+def iter_connection(connection):
+    try:
+        while True:
+            yield connection.recv()
+    except EOFError:
+        return
 
 
 ##### Server #####
@@ -171,7 +177,7 @@ class Server:
             json.dump(server_data, f)
 
     def handle_messages(self, connection):
-        for message in iter(connection.recv, "CLOSE"):
+        for message in iter_connection(connection):
             self.work_queue.put(message)
     
     def handle_messages_from_workers(self):
@@ -240,7 +246,7 @@ def get_files(target_path):
 
 def monitor_ids(connection, ids):
     ids = [uuid.UUID(id) if isinstance(id, str) else id for id in ids]
-    for message in iter(connection.recv, "STOP"):
+    for message in iter_connection(connection):
         if message["id"] in ids:
             if "logging" in message and message["logging"]:
                 print(message["record"], flush=True)
@@ -249,41 +255,39 @@ def monitor_ids(connection, ids):
                 ids.remove(message["id"])
         if not ids:
             break
+    if ids:
+        logging.warning(f"Server closed connection but there are still jobs to monitor: {ids}")
 
 
 def unpack_samples(samples, config, headless, ident, output_folder, block):
-    connection = connect_to_server() # might throw
+    with connect_to_server() as connection: # might throw
+        if output_folder is not None:
+            output_folder = os.path.abspath(output_folder)
 
-    if output_folder is not None:
-        output_folder = os.path.abspath(output_folder)
+        task_base = {
+            "sample": None,
+            "config": config,
+            "headless": headless,
+            "vm": "",
+            "snapshot": "",
+            "id": None,
+            "output_folder": output_folder,
+            "ident": ident,
+        }
+        samples = get_files(samples)
+        ids = []
+        for sample in samples:
+            task = dict(**task_base)
+            task["sample"] = sample
+            id = uuid.uuid4()
+            task["id"] = id
+            print(id)
+            ids.append(id)
+            connection.send(task)
 
-    task_base = {
-        "sample": None,
-        "config": config,
-        "headless": headless,
-        "vm": "",
-        "snapshot": "",
-        "id": None,
-        "output_folder": output_folder,
-        "ident": ident,
-    }
-    samples = get_files(samples)
-    ids = []
-    for sample in samples:
-        task = dict(**task_base)
-        task["sample"] = sample
-        id = uuid.uuid4()
-        task["id"] = id
-        print(id)
-        ids.append(id)
-        connection.send(task)
-
-    if block and ids:
-        monitor_ids(connection, ids)
+        if block and ids:
+            monitor_ids(connection, ids)
     
-    connection.send("CLOSE")
-    time.sleep(0.1)        
-    connection.close()
 
 
 
@@ -311,10 +315,7 @@ if __name__ == "__main__":
     elif args.action == "unpack":
         unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block)
     elif args.action == "monitor":
-        connection = connect_to_server() # might throw
-        monitor_ids(connection, list( args.job_ids))
-        connection.send("CLOSE")
-        time.sleep(0.1)  
-        connection.close()
+        with connect_to_server() as connection: # might throw
+            monitor_ids(connection, list( args.job_ids))
 
 
