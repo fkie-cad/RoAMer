@@ -18,8 +18,6 @@ LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
 FORMATER = logging.Formatter("%(asctime)-15s %(message)s")
 
-#https://stackoverflow.com/questions/22235426/python-multiprocessing-worker-queue
-
 
 ##### Settings #####
 WORKER_BASE_CONFIG = "config"
@@ -37,12 +35,9 @@ def get_current_server_lock_data():
             server_data = json.load(f)
         pid = server_data["pid"]
         if not psutil.pid_exists(pid):
-            return
+            return None
         return server_data
     
-
-
-
 
 
 ##### Server #####
@@ -216,8 +211,14 @@ def start_server_safe():
 
 ##### Client #####
 
-def connect_to_server(server_data):
-    return Client(server_data["address"])
+def connect_to_server():
+    server_data = get_current_server_lock_data()
+    if not server_data:
+        raise ValueError("Server not available")
+    connection = Client(server_data["address"])
+
+    assert connection
+    return connection
 
 
 def get_files(target_path):
@@ -236,13 +237,22 @@ def get_files(target_path):
         LOG.exception("uncaught exception")
     return samples
 
-def unpack_samples(samples, config, headless, ident, output_folder, block):
-    server_data = get_current_server_lock_data()
-    if not server_data:
-        raise ValueError("Server not available")
-    connection = connect_to_server(server_data)
 
-    assert connection
+def monitor_ids(connection, ids):
+    ids = [uuid.UUID(id) if isinstance(id, str) else id for id in ids]
+    for message in iter(connection.recv, "STOP"):
+        if message["id"] in ids:
+            if "logging" in message and message["logging"]:
+                print(message["record"], flush=True)
+            else:
+                print(message, flush=True)
+                ids.remove(message["id"])
+        if not ids:
+            break
+
+
+def unpack_samples(samples, config, headless, ident, output_folder, block):
+    connection = connect_to_server() # might throw
 
     if output_folder is not None:
         output_folder = os.path.abspath(output_folder)
@@ -264,22 +274,18 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
         task["sample"] = sample
         id = uuid.uuid4()
         task["id"] = id
+        print(id)
         ids.append(id)
         connection.send(task)
 
     if block and ids:
-        for message in iter(connection.recv, "STOP"):
-            if message["id"] in ids:
-                if "logging" in message and message["logging"]:
-                    print(message["record"], flush=True)
-                else:
-                    print(message, flush=True)
-                    ids.remove(message["id"])
-            if not ids:
-                break
+        monitor_ids(connection, ids)
     
     connection.send("CLOSE")
     time.sleep(0.1)        
+    connection.close()
+
+
 
 
 ##### CLI #####
@@ -295,12 +301,20 @@ if __name__ == "__main__":
     send_parser.add_argument('--output', action="store", help="Specify a custom output folder for the dumps", default=None)
     send_parser.add_argument('--block', action="store_true")
     server_parser = subparsers.add_parser("server")
+    monitor_parser = subparsers.add_parser("monitor")
+    monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to Monitor')
 
     args = parser.parse_args()
 
-    print(args.action)
     if args.action == "server":
         start_server_safe()
     elif args.action == "unpack":
         unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block)
+    elif args.action == "monitor":
+        connection = connect_to_server() # might throw
+        monitor_ids(connection, list( args.job_ids))
+        connection.send("CLOSE")
+        time.sleep(0.1)  
+        connection.close()
+
 
