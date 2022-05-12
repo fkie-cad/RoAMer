@@ -131,19 +131,82 @@ def appy_partial_on_base_config(base, partial):
     new_config.UNPACKER_CONFIG["guest_ip"] = partial["guest_ip"]
     return new_config
 
+
+class WorkerHandler:
+
+    def __init__(self, on_message):
+        self.onMessage = on_message
+
+
+    def _get_partial_configs(self):
+        base = importlib.import_module(WORKER_BASE_CONFIG)
+        partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
+        return partials.PARTIAL_CLONE_CONFIGS+[partial_from_base_config(base)]
+
+    def start_workers(self):
+        # Start Worker
+        self.work_queue = Queue()
+        self.done_queue = Queue()
+        processes = []
+        for partial_config in self._get_partial_configs():
+            p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
+            p.start()
+            processes.append(p)
+            #work_queue.put('STOP')
+        # for p in processes:
+        #     p.join()    
+        #     done_queue.put('STOP')
+        # for status in iter(done_queue.get, 'STOP'): 
+
+    def enqueue_job(self, job):
+        self.work_queue.put(job)
+
+
+    def run_handle_messages(self):
+        for message in iter(self.done_queue.get, "STOP"):
+            self.onMessage(message, None)
+
+
+class ClientHandler:
+
+    def __init__(self, listener: Listener, on_message):
+        self.clients = {}
+        self.listener = listener
+        self.onMessage = on_message
+
+    def send_message_to_client(self, message, client_id):
+        try:
+            self.clients[client_id].send(message)
+        except Exception as e:
+            self.clients.pop(client_id, None)
+
+    def send_message_to_clients(self, message):
+        for client_id in [*self.clients.keys()]:
+            self.send_message_to_client(message, client_id)
+
+    def handle_messages(self, connection, client_id):
+        for message in iter_connection(connection):
+            self.onMessage(message, client_id)
+    
+    def run(self):
+        while True:
+            connection = self.listener.accept()
+            client_id = uuid.uuid4()
+            self.clients[client_id] = connection
+            Thread(target=self.handle_messages, args=(connection,client_id)).start()
+
+
 class Server:
     def __init__(self):
-        try:
-            self.get_listener_and_lock()
-            self.start_worker()
+        self.get_listener_and_lock() # sets self.listerner
+        self.worker_handler = WorkerHandler(self.on_worker_message)
+        self.client_handler = ClientHandler(self.listener, self.on_client_message)
 
-            #Network: 
-            self.clients = [] 
-            Thread(target=self.handle_messages_from_workers).start()
-            #Thread(target=self.handle_incomming_connections).start()
-            self.handle_incomming_connections() # this will block
-        finally:
-            unlock_server()
+    def run(self):
+        self.worker_handler.start_workers()
+        Thread(target=self.worker_handler.run_handle_messages).start()
+        self.client_handler.run() # this will block
+
 
     def get_listener_and_lock(self):
         with open(LOCKFILE_PATH, "w") as f:
@@ -155,52 +218,13 @@ class Server:
             }
             json.dump(server_data, f)
 
-    ## related to workers ##
-
-    def get_partial_configs(self):
-        base = importlib.import_module(WORKER_BASE_CONFIG)
-        partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
-        return partials.PARTIAL_CLONE_CONFIGS+[partial_from_base_config(base)]
-
-    def start_worker(self):
-        # Start Worker
-        self.work_queue = Queue()
-        self.done_queue = Queue()
-        processes = []
-        for partial_config in self.get_partial_configs():
-            p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
-            p.start()
-            processes.append(p)
-            #work_queue.put('STOP')
-        # for p in processes:
-        #     p.join()    
-        #     done_queue.put('STOP')
-        # for status in iter(done_queue.get, 'STOP'): 
-    
-
-    def handle_messages_from_workers(self):
-        for message in iter(self.done_queue.get, "STOP"):
-            self.send_message_to_clients(message)
-
-
     ## related to clients ##
+    def on_client_message(self, message, client_id):
+        self.worker_handler.enqueue_job(message)
 
-    def send_message_to_clients(self, message):
-        for client in self.clients:
-            try:
-                client.send(message)
-            except Exception as e:
-                self.clients.remove(client)
+    def on_worker_message(self, message, worker_id):
+        self.client_handler.send_message_to_clients(message)
 
-    def handle_messages(self, connection):
-        for message in iter_connection(connection):
-            self.work_queue.put(message)
-    
-    def handle_incomming_connections(self):
-        while True:
-            connection = self.listener.accept()
-            self.clients.append(connection)
-            Thread(target=self.handle_messages, args=(connection,)).start()
 
 
 def unlock_server():
@@ -212,14 +236,13 @@ def start_server_safe():
     if not server_data:
         #Process(target=Server).start()
         #Thread(target=Server).start()
-        Server() # blocks
-        time.sleep(0.1)
+        try:
+            server = Server()
+            server.run() # blocks
+        finally:
+            unlock_server()
     else:
         LOG.warning("Server is already running. Did not start a new server.")
-    server_data = get_current_server_lock_data()
-    if server_data is None:
-        raise RuntimeError("Could not start roamerqueue server")
-    return server_data
 
 
 
