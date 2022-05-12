@@ -145,6 +145,18 @@ class Server:
         finally:
             unlock_server()
 
+    def get_listener_and_lock(self):
+        with open(LOCKFILE_PATH, "w") as f:
+            self.listener = Listener() 
+            print(self.listener.address)
+            server_data = {
+                "address": self.listener.address,
+                "pid": os.getpid(),
+            }
+            json.dump(server_data, f)
+
+    ## related to workers ##
+
     def get_partial_configs(self):
         base = importlib.import_module(WORKER_BASE_CONFIG)
         partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
@@ -166,28 +178,24 @@ class Server:
         # for status in iter(done_queue.get, 'STOP'): 
     
 
-    def get_listener_and_lock(self):
-        with open(LOCKFILE_PATH, "w") as f:
-            self.listener = Listener() 
-            print(self.listener.address)
-            server_data = {
-                "address": self.listener.address,
-                "pid": os.getpid(),
-            }
-            json.dump(server_data, f)
+    def handle_messages_from_workers(self):
+        for message in iter(self.done_queue.get, "STOP"):
+            self.send_message_to_clients(message)
+
+
+    ## related to clients ##
+
+    def send_message_to_clients(self, message):
+        for client in self.clients:
+            try:
+                client.send(message)
+            except Exception as e:
+                self.clients.remove(client)
 
     def handle_messages(self, connection):
         for message in iter_connection(connection):
             self.work_queue.put(message)
     
-    def handle_messages_from_workers(self):
-        for message in iter(self.done_queue.get, "STOP"):
-            for client in self.clients:
-                try:
-                    client.send(message)
-                except Exception as e:
-                    self.clients.remove(client)
-
     def handle_incomming_connections(self):
         while True:
             connection = self.listener.accept()
