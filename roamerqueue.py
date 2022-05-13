@@ -72,7 +72,7 @@ def stop_vm(partial_config):
 
 def worker(work_queue, done_queue, partial_config):
     print("worker up", str(partial_config))
-    for task in iter(work_queue.get, 'STOP'):
+    for task in iter(work_queue.get, 'STOPWORKER'):
         try:
             print(task)
             logging_handler = logging.StreamHandler(IdLoggingStream(task["id"], done_queue.put))
@@ -142,6 +142,7 @@ class WorkerHandler:
     def __init__(self, on_message):
         self.onMessage = on_message
         self.partial_configs = self._get_partial_configs()
+        self.workers = {}
 
 
     def _get_partial_configs(self):
@@ -166,11 +167,10 @@ class WorkerHandler:
         # Start Worker
         self.work_queue = Queue()
         self.done_queue = Queue()
-        processes = []
-        for partial_config in self.partial_configs:
+        for i, partial_config in enumerate(self.partial_configs):
             p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
             p.start()
-            processes.append(p)
+            self.workers[i] = p
             #work_queue.put('STOP')
         # for p in processes:
         #     p.join()    
@@ -197,6 +197,34 @@ class WorkerHandler:
         for message in iter(self.done_queue.get, "STOP"):
             self.onMessage(message, None)
 
+    def stop_receiving_worker_messages(self):
+        self.done_queue.put("STOP")
+
+    def wait_for_workers(self):
+        for process in self.workers.values():
+            process.join()
+    
+    def kill_workers(self):
+        for process in self.workers.values():
+            process.terminate()
+
+    def send_stop_signal(self):
+        for _ in range(len(self.workers)):
+            self.work_queue.put("STOPWORKER")
+    
+    def shutdown(self, force=False):
+        logging.info("enqueue signal for worker to stop")
+        self.send_stop_signal()
+        if force:
+            logging.info("terminate workers")
+            self.kill_workers()
+            logging.info("shutdown vms")
+            self.stop_all_vms()
+        else:
+            logging.info("wait for workers to terminate, this might take a while")
+            self.wait_for_workers()
+        logging.info("stop listening for workers")
+        self.stop_receiving_worker_messages()
 
 class ClientHandler:
 
@@ -215,7 +243,9 @@ class ClientHandler:
         for client_id in [*self.clients.keys()]:
             self.send_message_to_client(message, client_id)
 
-    def handle_messages(self, connection, client_id):
+    def handle_messages(self, connection, client_id, message_backlog):
+        for message in message_backlog:
+            self.onMessage(message, client_id)
         for message in iter_connection(connection):
             self.onMessage(message, client_id)
     
@@ -224,14 +254,44 @@ class ClientHandler:
             connection = self.listener.accept()
             client_id = uuid.uuid4()
             self.clients[client_id] = connection
-            Thread(target=self.handle_messages, args=(connection,client_id)).start()
+            message_backlog = []
+            if connection.poll(0.1):
+                first_message = connection.recv()
+                if first_message == "STOPLISTENER":
+                    connection.close()
+                    break
+                else:
+                    message_backlog.append(first_message)
+            Thread(target=self.handle_messages, args=(connection,client_id,message_backlog)).start()
 
+    def _stop_listening(self):
+        connection = Client(self.listener.address)
+        connection.send("STOPLISTENER")
+
+    def kill_connection(self, client_id):
+        try:
+            self.clients.pop(client_id, None)
+            self.clients[client_id].close()
+        except Exception:
+            pass
+    
+    def _kill_running_connections(self):
+        for client_id in [*self.clients.keys()]:
+            self.kill_connection(client_id)
+    
+    def shutdown(self):
+        self._stop_listening()
+        self._kill_running_connections()
 
 class Server:
     def __init__(self):
         self.get_listener_and_lock() # sets self.listerner
         self.worker_handler = WorkerHandler(self.on_worker_message)
         self.client_handler = ClientHandler(self.listener, self.on_client_message)
+        self.allow_queue = True
+    
+    def disallow_enqueueing(self):
+        self.allow_queue = False
 
     def run(self):
         self.worker_handler.start_workers()
@@ -252,9 +312,14 @@ class Server:
     def on_client_message(self, message, client_id):
         try:
             if message["task"] == "unpack":
-                self.worker_handler.enqueue_job(message)
+                if self.allow_queue:
+                    self.worker_handler.enqueue_job(message)
+                else:
+                    pass
             elif message["task"] == "clear-queue":
                 self.worker_handler.clear_queue()
+            elif message["task"] == "shutdown":
+                self.shutdown(force=message["force"])
             else:
                 logging.error("Error handling message from client: unknown task")
         except Exception:
@@ -263,10 +328,21 @@ class Server:
     def on_worker_message(self, message, worker_id):
         self.client_handler.send_message_to_clients(message)
 
-    def cleanup(self):
+    def panic_cleanup(self):
         unlock_server()
         self.worker_handler.stop_all_vms()
 
+    def shutdown(self, force=False):
+        logging.info("initiate shutdown sequence")
+        logging.info("disallow enqueueing")
+        self.disallow_enqueueing()
+        logging.info("clear queue")
+        self.worker_handler.clear_queue()
+        self.worker_handler.shutdown(force=force)
+        logging.info("kill client connections")
+        self.client_handler.shutdown()
+        unlock_server()
+        # NOTE: cleanup does not need to be called, as this is already done in finally
 
 def unlock_server():
     os.remove(LOCKFILE_PATH)
@@ -280,8 +356,8 @@ def start_server_safe():
         try:
             server = Server()
             server.run() # blocks
-        finally:
-            server.cleanup()
+        except:
+            server.panic_cleanup()
     else:
         LOG.warning("Server is already running. Did not start a new server.")
 
@@ -335,7 +411,15 @@ def monitor_ids(connection, ids):
 def clear_queue(connection):
     connection.send(
         {
-            "task":"clear-queue"
+            "task":"clear-queue",
+        }
+    )
+
+def shutdown_server(connection, force=False):
+    connection.send(
+        {
+            "task":"shutdown",
+            "force": force,
         }
     )
 
@@ -390,6 +474,8 @@ if __name__ == "__main__":
     monitor_parser = subparsers.add_parser("monitor")
     monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to Monitor')
     clear_parser = subparsers.add_parser("clear-queue")
+    shutdown_parser = subparsers.add_parser("shutdown")
+    shutdown_parser.add_argument('--force', action="store_true")
 
     args = parser.parse_args()
 
@@ -403,6 +489,9 @@ if __name__ == "__main__":
     elif args.action == "clear-queue":
         with connect_to_server() as connection: # might throw
             clear_queue(connection)
+    elif args.action == "shutdown":
+        with connect_to_server() as connection: # might throw
+            shutdown_server(connection, force=args.force)
             
 
 
