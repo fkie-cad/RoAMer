@@ -407,6 +407,8 @@ class Server:
                 self.worker_handler.cancel_jobs(message["ids"])
             elif message["task"] == "shutdown":
                 self.shutdown(force=message["force"], finish_queue=message["finish_queue"])
+            elif message["task"] == "status":
+                self.client_handler.send_message_to_client([*self.worker_handler.work_queue], client_id)
             else:
                 logging.error("Error handling message from client: unknown task")
         except Exception:
@@ -573,6 +575,24 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
             monitor_ids(connection, ids)
     
 
+def show_status(connection):
+    connection.send(
+        {
+            "task": "status",
+        }
+    )
+    message = None
+    for message in iter_connection(connection):
+        break
+    if message is not None:
+        queue = message
+        print("Number of jobs in queue (unstarted):", len(queue))
+        print("Jobs:")
+        for job in queue:
+            if not "id" in job:
+                print(job)
+            else:
+                print(str(job["id"]), job["sample"])
 
 
 
@@ -598,6 +618,7 @@ if __name__ == "__main__":
     shutdown_flag_group = shutdown_parser.add_mutually_exclusive_group()
     shutdown_flag_group.add_argument('--force', action="store_true")
     shutdown_flag_group.add_argument('--finish-queue', action="store_true")
+    status_parser = subparsers.add_parser("status")
 
     args = parser.parse_args()
 
@@ -617,6 +638,9 @@ if __name__ == "__main__":
     elif args.action == "shutdown":
         with connect_to_server() as connection: # might throw
             shutdown_server(connection, force=args.force, finish_queue=args.finish_queue)
+    elif args.action == "status":
+        with connect_to_server() as connection: # might throw
+            show_status(connection)
             
 
 
