@@ -1,7 +1,6 @@
 import argparse
 from copy import deepcopy
 from queue import Empty
-import queue
 import uuid
 import psutil
 import importlib
@@ -60,6 +59,8 @@ def iter_connection(connection):
         while True:
             yield connection.recv()
     except EOFError:
+        return
+    except ConnectionResetError:
         return
 
 
@@ -478,20 +479,35 @@ def get_files(target_path):
 
 def monitor_ids(connection, ids):
     ids = [uuid.UUID(id) if isinstance(id, str) else id for id in ids]
-    for message in iter_connection(connection):
-        if message == "STOPCLIENT":
-            break
-        if message["id"] in ids:
-            if "logging" in message and message["logging"]:
-                print(message["record"], flush=True)
-            else:
-                print(message, flush=True)
-                if message["state"] not in ["started", "enqueued"]:
-                    ids.remove(message["id"])
-        if not ids:
-            break
-    if ids:
-        logging.warning(f"Server closed connection but there are still jobs to monitor: {ids}")
+    try:
+        for message in iter_connection(connection):
+            if message == "STOPCLIENT":
+                break
+            if message["id"] in ids:
+                if "logging" in message and message["logging"]:
+                    print(message["record"], flush=True)
+                else:
+                    print(message, flush=True)
+                    if message["state"] not in ["started", "enqueued"]:
+                        ids.remove(message["id"])
+            if not ids:
+                break
+        if ids:
+            logging.warning(f"Server closed connection but there are still jobs to monitor: {ids}")
+    except KeyboardInterrupt:
+        answer = None
+        print()
+        while answer not in ["a", "b", "c"]:
+            answer = input("""What do you want to do (a/b/c):
+a) stop monitoring
+b) cancel your unstarted queued jobs and stop monitoring
+c) cancel your unstarted queued jobs and keep monitoring running jobs
+""")
+            answer = answer.lower()
+        if answer in ["b", "c"]:
+            cancel_ids(connection, ids)
+        if answer == "c":
+            monitor_ids(connection, ids)
 
 
 def clear_queue(connection):
