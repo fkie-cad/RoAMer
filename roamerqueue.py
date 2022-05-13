@@ -31,6 +31,19 @@ LOCKFILE_NAME = "queue.lock"
 LOCKFILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), LOCKFILE_NAME)
 
 
+
+##### ExtendedQueue #####
+
+class ExtendedQueue(Queue):
+    def remove(self, element):
+        with self.not_empty:
+            self.queue.remove(element)
+            self.not_full.notify()
+
+    def __iter__(self):
+        return self.queue.__iter__()
+
+
 ##### Shared #####
 def get_current_server_lock_data():
     #FIXME: Not atomic
@@ -178,7 +191,7 @@ class WorkerHandler:
 
     def start_workers(self):
         # Start Worker
-        self.work_queue = Queue()
+        self.work_queue = ExtendedQueue()
         self.done_queue = JoinableQueue()
         for i, partial_config in enumerate(self.partial_configs):
             queue = JoinableQueue()
@@ -197,6 +210,29 @@ class WorkerHandler:
         self.work_queue.put(job)
 
     def cancel_jobs(self, job_ids):
+        remove_list = []
+        for job in self.work_queue:
+            if job and "id" in job and job["id"] in job_ids:
+                remove_list.append(job)
+        for job_to_cancel in remove_list:
+            try:
+                self.work_queue.remove(job_to_cancel)
+                self.done_queue.put(
+                    {
+                        "state": "cancelled",
+                        "id": job_to_cancel["id"],
+                    }
+                )
+            except ValueError:
+                print(f"job {job_to_cancel} vanished while trying to remove it")
+                pass
+        removed_ids = set()
+        for job in remove_list:
+            removed_ids.add(job["id"])
+        for id in job_ids:
+            if id not in removed_ids:
+                print(f"Could not remove job {id}")
+
 
 
     def clear_queue(self):
@@ -283,7 +319,7 @@ class ClientHandler:
             message_backlog = []
             if connection.poll(0.1):
                 try:
-                first_message = connection.recv()
+                    first_message = connection.recv()
                 except EOFError:
                     continue
                 if first_message == "STOPLISTENER":
@@ -360,6 +396,8 @@ class Server:
                     pass
             elif message["task"] == "clear-queue":
                 self.worker_handler.clear_queue()
+            elif message["task"] == "cancel":
+                self.worker_handler.cancel_jobs(message["ids"])
             elif message["task"] == "shutdown":
                 self.shutdown(force=message["force"], finish_queue=message["finish_queue"])
             else:
@@ -463,6 +501,15 @@ def clear_queue(connection):
         }
     )
 
+def cancel_ids(connection, ids):
+    ids = [uuid.UUID(id) if isinstance(id, str) else id for id in ids]
+    connection.send(
+        {
+            "task":"cancel",
+            "ids": ids,
+        }
+    )
+
 def shutdown_server(connection, force=False, finish_queue=False):
     connection.send(
         {
@@ -521,7 +568,9 @@ if __name__ == "__main__":
     send_parser.add_argument('--block', action="store_true")
     server_parser = subparsers.add_parser("server")
     monitor_parser = subparsers.add_parser("monitor")
-    monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to Monitor')
+    monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to monitor')
+    cancel_parser = subparsers.add_parser("cancel")
+    cancel_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to cancel')
     clear_parser = subparsers.add_parser("clear-queue")
     shutdown_parser = subparsers.add_parser("shutdown")
     shutdown_flag_group = shutdown_parser.add_mutually_exclusive_group()
@@ -537,6 +586,9 @@ if __name__ == "__main__":
     elif args.action == "monitor":
         with connect_to_server() as connection: # might throw
             monitor_ids(connection, list( args.job_ids))
+    elif args.action == "cancel":
+        with connect_to_server() as connection: # might throw
+            cancel_ids(connection, list( args.job_ids))
     elif args.action == "clear-queue":
         with connect_to_server() as connection: # might throw
             clear_queue(connection)
