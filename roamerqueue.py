@@ -164,6 +164,7 @@ class WorkerHandler:
         self.partial_configs = self._get_partial_configs()
         self.workers = {}
         self.worker_queues = {}
+        self.current_worker_tasks = {}
 
 
     def _get_partial_configs(self):
@@ -184,10 +185,13 @@ class WorkerHandler:
             except Exception:
                 pass
     
-    def run_feed_workers(self, worker_queue):
+    def run_feed_workers(self, worker_index, worker_queue):
         while True:
             worker_queue.join()
+            self.current_worker_tasks[worker_index] = None
+            # Workerstate: Idle
             task = self.work_queue.get()
+            self.current_worker_tasks[worker_index] = task
             worker_queue.put(task)
             if task == "STOPWORKER":
                 break
@@ -203,7 +207,8 @@ class WorkerHandler:
             p.start()
             self.workers[i] = p
             self.worker_queues[i] = queue
-            Thread(target=self.run_feed_workers, args=(queue,)).start()
+            self.current_worker_tasks[i] = None
+            Thread(target=self.run_feed_workers, args=(i, queue,)).start()
             #work_queue.put('STOP')
         # for p in processes:
         #     p.join()    
@@ -408,7 +413,14 @@ class Server:
             elif message["task"] == "shutdown":
                 self.shutdown(force=message["force"], finish_queue=message["finish_queue"])
             elif message["task"] == "status":
-                self.client_handler.send_message_to_client([*self.worker_handler.work_queue], client_id)
+                self.client_handler.send_message_to_client(
+                    {
+                        "worker_configs": self.worker_handler.partial_configs,
+                        "worker_tasks": self.worker_handler.current_worker_tasks,
+                        "queue": [*self.worker_handler.work_queue],
+                    },
+                    client_id
+                )
             else:
                 logging.error("Error handling message from client: unknown task")
         except Exception:
@@ -585,14 +597,28 @@ def show_status(connection):
     for message in iter_connection(connection):
         break
     if message is not None:
-        queue = message
-        print("Number of jobs in queue (unstarted):", len(queue))
-        print("Jobs:")
-        for job in queue:
-            if not "id" in job:
-                print(job)
+        worker_configs = message["worker_configs"]
+        worker_tasks = message["worker_tasks"]
+        print(len(worker_configs), "workers available", )
+        for i in range(len(worker_configs)):
+            print(i, worker_configs[i]["VM_NAME"], sep="\t")
+            job = worker_tasks[i]
+            if job is None:
+                job_str = "idle"
+            elif not "id" in job:
+                job_str = str(job)
             else:
-                print(str(job["id"]), job["sample"])
+                job_str = str(job["id"]) + " " + job["sample"]
+            print("", job_str, sep="\t")
+            print()
+        queue = message["queue"]
+        print()
+        print(len(queue), "unstarted job(s) in queue:")
+        for i, job in enumerate(queue):
+            if not "id" in job:
+                print(i+1, job, sep="\t")
+            else:
+                print(i+1, "\t", str(job["id"]), job["sample"])
 
 
 
