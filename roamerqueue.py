@@ -1,6 +1,7 @@
 import argparse
 from copy import deepcopy
 from queue import Empty
+import queue
 import uuid
 import psutil
 import importlib
@@ -10,8 +11,9 @@ import os
 from threading import Thread
 import time
 import traceback
-from multiprocessing import Process, Queue
+from multiprocessing import Process, JoinableQueue
 from multiprocessing.connection import Client, Listener
+from queue import Queue
 
 from roamer.RoAMer import RoAMer
 from roamer.VmController import VmController
@@ -93,6 +95,7 @@ def worker(work_queue, done_queue, partial_config):
                     "error": traceback.format_exc(),
                 }
             )
+        work_queue.task_done()
 
 
 def run_task(task, partial_config, logging_handler):
@@ -143,6 +146,7 @@ class WorkerHandler:
         self.onMessage = on_message
         self.partial_configs = self._get_partial_configs()
         self.workers = {}
+        self.worker_queues = {}
 
 
     def _get_partial_configs(self):
@@ -162,15 +166,27 @@ class WorkerHandler:
                 stop_vm(partial_config)
             except Exception:
                 pass
+    
+    def run_feed_workers(self, worker_queue):
+        while True:
+            worker_queue.join()
+            task = self.work_queue.get()
+            worker_queue.put(task)
+            if task == "STOPWORKER":
+                break
+
 
     def start_workers(self):
         # Start Worker
         self.work_queue = Queue()
-        self.done_queue = Queue()
+        self.done_queue = JoinableQueue()
         for i, partial_config in enumerate(self.partial_configs):
-            p = Process(target=worker, args=(self.work_queue, self.done_queue, partial_config))
+            queue = JoinableQueue()
+            p = Process(target=worker, args=(queue, self.done_queue, partial_config))
             p.start()
             self.workers[i] = p
+            self.worker_queues[i] = queue
+            Thread(target=self.run_feed_workers, args=(queue,)).start()
             #work_queue.put('STOP')
         # for p in processes:
         #     p.join()    
@@ -179,6 +195,9 @@ class WorkerHandler:
 
     def enqueue_job(self, job):
         self.work_queue.put(job)
+
+    def cancel_jobs(self, job_ids):
+
 
     def clear_queue(self):
         try:
