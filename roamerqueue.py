@@ -88,28 +88,31 @@ def stop_vm(partial_config):
 
 def worker(work_queue, done_queue, partial_config):
     print("worker up", str(partial_config))
-    for task in iter(work_queue.get, 'STOPWORKER'):
-        try:
-            print(task)
-            logging_handler = logging.StreamHandler(IdLoggingStream(task["id"], done_queue.put))
-            logging_handler.terminator = ""
-            logging_handler.setFormatter(FORMATER)
-            run_task(task, partial_config, logging_handler)
-            done_queue.put(
-                {
-                    "state": "finished",
-                    "id": task["id"],
-                }
-            )
-        except Exception as e:        
-            done_queue.put(
-                {
-                    "state": "failed",
-                    "id": task["id"],
-                    "error": traceback.format_exc(),
-                }
-            )
-        work_queue.task_done()
+    try:
+        for task in iter(work_queue.get, 'STOPWORKER'):
+            try:
+                print(task)
+                logging_handler = logging.StreamHandler(IdLoggingStream(task["id"], done_queue.put))
+                logging_handler.terminator = ""
+                logging_handler.setFormatter(FORMATER)
+                run_task(task, partial_config, logging_handler)
+                done_queue.put(
+                    {
+                        "state": "finished",
+                        "id": task["id"],
+                    }
+                )
+            except:
+                done_queue.put(
+                    {
+                        "state": "failed",
+                        "id": task["id"],
+                        "error": traceback.format_exc(),
+                    }
+                )
+            work_queue.task_done()
+    except KeyboardInterrupt:
+        print("worker interrupted by KeyboardInterrupt")
 
 
 def run_task(task, partial_config, logging_handler):
@@ -275,7 +278,7 @@ class WorkerHandler:
         for _ in range(len(self.workers)):
             self.work_queue.put("STOPWORKER")
     
-    def shutdown(self, force=False):
+    def shutdown(self, force=False, stop_vms=False):
         logging.info("enqueue signal for worker to stop")
         self.send_stop_signal()
         if force:
@@ -286,6 +289,9 @@ class WorkerHandler:
         else:
             logging.info("wait for workers to terminate, this might take a while")
             self.wait_for_workers()
+        if stop_vms:
+            logging.info("shutdown vms")
+            self.stop_all_vms()
         logging.info("stop listening for workers")
         self.stop_receiving_worker_messages()
 
@@ -413,14 +419,14 @@ class Server:
         unlock_server()
         self.worker_handler.stop_all_vms()
 
-    def shutdown(self, force=False, finish_queue=False):
+    def shutdown(self, force=False, finish_queue=False, stop_vms=False):
         logging.info("initiate shutdown sequence")
         logging.info("disallow enqueueing")
         self.disallow_enqueueing()
         if not finish_queue:
             logging.info("clear queue")
             self.worker_handler.clear_queue()
-        self.worker_handler.shutdown(force=force)
+        self.worker_handler.shutdown(force=force, stop_vms=stop_vms)
         self.client_handler.shutdown()
         unlock_server()
         # NOTE: cleanup does not need to be called, as this is already done in finally
@@ -439,7 +445,7 @@ def start_server_safe():
             server = Server()
             server.run() # blocks
         except KeyboardInterrupt:
-            server.shutdown()
+            server.shutdown(stop_vms=True)
         except Exception:
             logging.error("run panic-cleanup because of uncaught exception:\n"+traceback.format_exc())
             server.panic_cleanup()
