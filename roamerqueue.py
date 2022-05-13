@@ -225,6 +225,12 @@ class WorkerHandler:
             process.join()
     
     def kill_workers(self):
+        # This allows feeders to shut down
+        for worker_queue in self.worker_queues.values():
+            try:
+                worker_queue.task_done()
+            except ValueError:
+                pass
         for process in self.workers.values():
             process.terminate()
 
