@@ -276,7 +276,10 @@ class ClientHandler:
             self.clients[client_id] = connection
             message_backlog = []
             if connection.poll(0.1):
+                try:
                 first_message = connection.recv()
+                except EOFError:
+                    continue
                 if first_message == "STOPLISTENER":
                     connection.close()
                     break
