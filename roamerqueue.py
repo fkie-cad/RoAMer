@@ -39,8 +39,9 @@ class ExtendedQueue(Queue):
             self.queue.remove(element)
             self.not_full.notify()
 
-    def __iter__(self):
-        return self.queue.__iter__()
+    def as_list(self):
+        with self.mutex:
+            return [*self.queue]
 
 
 ##### Shared #####
@@ -220,7 +221,7 @@ class WorkerHandler:
 
     def cancel_jobs(self, job_ids):
         remove_list = []
-        for job in self.work_queue:
+        for job in self.work_queue.as_list():
             if job and "id" in job and job["id"] in job_ids:
                 remove_list.append(job)
         for job_to_cancel in remove_list:
@@ -417,7 +418,7 @@ class Server:
                     {
                         "worker_configs": self.worker_handler.partial_configs,
                         "worker_tasks": self.worker_handler.current_worker_tasks,
-                        "queue": [*self.worker_handler.work_queue],
+                        "queue": self.worker_handler.work_queue.as_list(),
                     },
                     client_id
                 )
