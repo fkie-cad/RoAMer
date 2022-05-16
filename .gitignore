@@ -101,3 +101,5 @@ config.py
 deploy_config.py
 deployer_results
 data/*
+queue.lock
+clone_configs.py
