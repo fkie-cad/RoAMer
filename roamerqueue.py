@@ -642,6 +642,12 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
             monitor_ids(connection, ids)
     
 
+def watch_status(connection, refresh_time):
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        show_status(connection)
+        time.sleep(refresh_time)
+
 def show_status(connection):
     connection.send(
         {
@@ -650,7 +656,8 @@ def show_status(connection):
     )
     message = None
     for message in iter_connection(connection):
-        break
+        if message is not None and "worker_tasks" in message:
+            break
     if message is not None:
         worker_configs = message["worker_configs"]
         worker_tasks = message["worker_tasks"]
@@ -701,6 +708,8 @@ if __name__ == "__main__":
     shutdown_flag_group.add_argument('--force', action="store_true")
     shutdown_flag_group.add_argument('--finish-queue', action="store_true")
     status_parser = subparsers.add_parser("status")
+    status_parser.add_argument('--watch', action="store_true")
+    status_parser.add_argument('--watch-time', type=float, default=1)
 
     args = parser.parse_args()
 
@@ -722,7 +731,10 @@ if __name__ == "__main__":
             shutdown_server(connection, force=args.force, finish_queue=args.finish_queue)
     elif args.action == "status":
         with connect_to_server() as connection: # might throw
-            show_status(connection)
+            if args.watch:
+                watch_status(connection, args.watch_time)
+            else:
+                show_status(connection)
             
 
 
