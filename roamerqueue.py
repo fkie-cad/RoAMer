@@ -570,9 +570,9 @@ def monitor_ids(connection, ids):
     except KeyboardInterrupt:
         answer = None
         print()
-        while answer not in ["q", "c", "m", "k"]:
-            answer = input("""What do you want to do (a/b/c):
-q) just quit, i.e. stop monitoring
+        while answer not in ["d", "c", "m", "k"]:
+            answer = input("""What do you want to do (d/c/m/k):
+d) detach, i.e. stop monitoring
 c) cancel your unstarted queued jobs and stop monitoring
 m) cancel your unstarted queued jobs and keep monitoring running jobs
 k) cancel and/or kill all of your jobs
