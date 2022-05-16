@@ -1,6 +1,8 @@
 import argparse
 from copy import deepcopy
+import io
 from queue import Empty
+import sys
 import uuid
 import psutil
 import importlib
@@ -644,11 +646,13 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
 
 def watch_status(connection, refresh_time):
     while True:
-        os.system('cls' if os.name == 'nt' else 'clear')
-        show_status(connection)
+        with io.StringIO() as stream:
+            show_status(connection, stream)
+            os.system('cls' if os.name == 'nt' else 'clear')
+            print(stream.getvalue())
         time.sleep(refresh_time)
 
-def show_status(connection):
+def show_status(connection, file=sys.stdout):
     connection.send(
         {
             "task": "status",
@@ -661,9 +665,9 @@ def show_status(connection):
     if message is not None:
         worker_configs = message["worker_configs"]
         worker_tasks = message["worker_tasks"]
-        print(len(worker_configs), "workers available", )
+        print(len(worker_configs), "workers available", file=file)
         for i in range(len(worker_configs)):
-            print(i, worker_configs[i]["VM_NAME"], sep="\t")
+            print(i, worker_configs[i]["VM_NAME"], sep="\t", file=file)
             job = worker_tasks[i]
             if job is None:
                 job_str = "idle"
@@ -671,16 +675,16 @@ def show_status(connection):
                 job_str = str(job)
             else:
                 job_str = str(job["id"]) + " " + job["sample"]
-            print("", job_str, sep="\t")
-            print()
+            print("", job_str, sep="\t", file=file)
+            print(file=file)
         queue = message["queue"]
-        print()
-        print(len(queue), "unstarted job(s) in queue:")
+        print(file=file)
+        print(len(queue), "unstarted job(s) in queue:", file=file)
         for i, job in enumerate(queue):
             if not "id" in job:
-                print(i+1, job, sep="\t")
+                print(i+1, job, sep="\t", file=file)
             else:
-                print(i+1, "\t", str(job["id"]), job["sample"])
+                print(i+1, "\t", str(job["id"]), job["sample"], file=file)
 
 
 
