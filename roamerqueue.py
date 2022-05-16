@@ -10,7 +10,7 @@ import os
 from threading import Thread
 import time
 import traceback
-from multiprocessing import Process, JoinableQueue
+from multiprocessing import Process, JoinableQueue, Semaphore
 from multiprocessing.connection import Client, Listener
 from queue import Queue
 
@@ -165,6 +165,7 @@ class WorkerHandler:
         self.partial_configs = self._get_partial_configs()
         self.workers = {}
         self.worker_queues = {}
+        self.worker_feeder_semaphores = {}
         self.current_worker_tasks = {}
 
 
@@ -173,27 +174,36 @@ class WorkerHandler:
         partials = importlib.import_module(CLONE_PARTIAL_CONFIGS)
         return partials.PARTIAL_CLONE_CONFIGS+[partial_from_base_config(base)]
 
+    def stop_vms(self, worker_ids):
+        for worker_id in worker_ids:
+            partial_config = self.partial_configs[worker_id]
+            try:
+                stop_vm(partial_config)
+            except Exception:
+                pass
+        time.sleep(3)
+        for worker_id in worker_ids:
+            partial_config = self.partial_configs[worker_id]
+            try:
+                stop_vm(partial_config)
+            except Exception:
+                pass
+
+
     def stop_all_vms(self):
-        for partial_config in self.partial_configs:
-            try:
-                stop_vm(partial_config)
-            except Exception:
-                pass
-        time.sleep(2)
-        for partial_config in self.partial_configs:
-            try:
-                stop_vm(partial_config)
-            except Exception:
-                pass
+        self.stop_vms([*self.workers.keys()])
     
-    def run_feed_workers(self, worker_index, worker_queue):
+    def run_feed_workers(self, worker_index):
+        worker_queue = self.worker_queues[worker_index]
+        semaphore = self.worker_feeder_semaphores[worker_index]
         while True:
             worker_queue.join()
             self.current_worker_tasks[worker_index] = None
             # Workerstate: Idle
             task = self.work_queue.get()
-            self.current_worker_tasks[worker_index] = task
-            worker_queue.put(task)
+            with semaphore:
+                self.current_worker_tasks[worker_index] = task
+                worker_queue.put(task)
             if task == "STOPWORKER":
                 break
 
@@ -209,7 +219,8 @@ class WorkerHandler:
             self.workers[i] = p
             self.worker_queues[i] = queue
             self.current_worker_tasks[i] = None
-            Thread(target=self.run_feed_workers, args=(i, queue,)).start()
+            self.worker_feeder_semaphores[i] = Semaphore()
+            Thread(target=self.run_feed_workers, args=(i,)).start()
             #work_queue.put('STOP')
         # for p in processes:
         #     p.join()    
@@ -219,7 +230,7 @@ class WorkerHandler:
     def enqueue_job(self, job):
         self.work_queue.put(job)
 
-    def cancel_jobs(self, job_ids):
+    def cancel_jobs(self, job_ids, allow_kill=True):
         remove_list = []
         for job in self.work_queue.as_list():
             if job and "id" in job and job["id"] in job_ids:
@@ -237,13 +248,52 @@ class WorkerHandler:
                 print(f"job {job_to_cancel} vanished while trying to remove it")
                 pass
         removed_ids = set()
+        remaining_ids = []
         for job in remove_list:
             removed_ids.add(job["id"])
         for id in job_ids:
             if id not in removed_ids:
-                print(f"Could not remove job {id}")
+                print(f"Could not remove job {id} from queue")
+                remaining_ids.append(id)
+        if allow_kill:
+            self.kill_jobs(remaining_ids)
 
 
+    def kill_jobs(self, job_ids):
+        workers_killed_list = []
+        for worker_index, current_job in [*self.current_worker_tasks.items()]:
+            self.worker_feeder_semaphores[worker_index].acquire()
+            if current_job and "id" in current_job and current_job["id"] in job_ids:
+                # FIXME: this might break all IPC related to done_queue, the worker feeder, and the worker_queue
+                self.workers[worker_index].terminate()
+                workers_killed_list.append(worker_index)
+                if self.current_worker_tasks[worker_index] is not None:
+                    self.worker_queues[worker_index].task_done()
+                    self.done_queue.put(
+                        {
+                            "state": "killed",
+                            "id": current_job["id"],
+                        }
+                    )
+                time.sleep(0.1)
+                self.current_worker_tasks[worker_index] = "RESTARTING"
+                logging.info(f"Restaring worker {self.partial_configs[worker_index]['VM_NAME']}")
+            else:
+                self.worker_feeder_semaphores[worker_index].release()
+
+        self.stop_vms(workers_killed_list)
+        for i in workers_killed_list:
+            # queue = JoinableQueue()
+            queue = self.worker_queues[i]
+            partial_config = self.partial_configs[i]
+            p = Process(target=worker, args=(queue, self.done_queue, partial_config))
+            p.start()
+            self.workers[i] = p
+            #self.worker_queues[i] = queue
+            self.current_worker_tasks[i] = None
+            # Thread(target=self.run_feed_workers, args=(i, queue,)).start()
+            self.worker_feeder_semaphores[i].release()
+                    
 
     def clear_queue(self):
         try:
@@ -410,7 +460,7 @@ class Server:
             elif message["task"] == "clear-queue":
                 self.worker_handler.clear_queue()
             elif message["task"] == "cancel":
-                self.worker_handler.cancel_jobs(message["ids"])
+                self.worker_handler.cancel_jobs(message["ids"], allow_kill=message["allow_kill"])
             elif message["task"] == "shutdown":
                 self.shutdown(force=message["force"], finish_queue=message["finish_queue"])
             elif message["task"] == "status":
@@ -518,16 +568,19 @@ def monitor_ids(connection, ids):
     except KeyboardInterrupt:
         answer = None
         print()
-        while answer not in ["a", "b", "c"]:
+        while answer not in ["q", "c", "m", "k"]:
             answer = input("""What do you want to do (a/b/c):
-a) stop monitoring
-b) cancel your unstarted queued jobs and stop monitoring
-c) cancel your unstarted queued jobs and keep monitoring running jobs
+q) just quit, i.e. stop monitoring
+c) cancel your unstarted queued jobs and stop monitoring
+m) cancel your unstarted queued jobs and keep monitoring running jobs
+k) cancel and/or kill all of your jobs
 """)
             answer = answer.lower()
-        if answer in ["b", "c"]:
-            cancel_ids(connection, ids)
-        if answer == "c":
+        if answer in ["c", "m"]:
+            cancel_ids(connection, ids, allow_kill=False)
+        if answer == "k":
+            cancel_ids(connection, ids, allow_kill=True)
+        if answer == "m":
             monitor_ids(connection, ids)
 
 
@@ -538,12 +591,13 @@ def clear_queue(connection):
         }
     )
 
-def cancel_ids(connection, ids):
+def cancel_ids(connection, ids, allow_kill=False):
     ids = [uuid.UUID(id) if isinstance(id, str) else id for id in ids]
     connection.send(
         {
             "task":"cancel",
             "ids": ids,
+            "allow_kill": allow_kill,
         }
     )
 
@@ -640,6 +694,7 @@ if __name__ == "__main__":
     monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to monitor')
     cancel_parser = subparsers.add_parser("cancel")
     cancel_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to cancel')
+    cancel_parser.add_argument('--kill', action="store_true")
     clear_parser = subparsers.add_parser("clear-queue")
     shutdown_parser = subparsers.add_parser("shutdown")
     shutdown_flag_group = shutdown_parser.add_mutually_exclusive_group()
@@ -658,7 +713,7 @@ if __name__ == "__main__":
             monitor_ids(connection, list( args.job_ids))
     elif args.action == "cancel":
         with connect_to_server() as connection: # might throw
-            cancel_ids(connection, list( args.job_ids))
+            cancel_ids(connection, list( args.job_ids), allow_kill=args.kill)
     elif args.action == "clear-queue":
         with connect_to_server() as connection: # might throw
             clear_queue(connection)
