@@ -45,6 +45,16 @@ class ExtendedQueue(Queue):
         with self.mutex:
             return [*self.queue]
 
+    def put(self, item, put_front=False, **kwargs):
+        super().put([put_front, item], **kwargs)
+
+    def _put(self, item):
+        put_front, original_item = item
+        if put_front:
+            self.queue.appendleft(original_item)
+        else:
+            self.queue.append(original_item)
+
 
 ##### Shared #####
 def get_current_server_lock_data():
@@ -229,8 +239,8 @@ class WorkerHandler:
         #     done_queue.put('STOP')
         # for status in iter(done_queue.get, 'STOP'): 
 
-    def enqueue_job(self, job):
-        self.work_queue.put(job)
+    def enqueue_job(self, job, put_front=False):
+        self.work_queue.put(job, put_front=put_front)
 
     def cancel_jobs(self, job_ids, allow_kill=True):
         remove_list = []
@@ -450,7 +460,8 @@ class Server:
         try:
             if message["task"] == "unpack":
                 if self.allow_queue:
-                    self.worker_handler.enqueue_job(message)
+                    has_priority = message["priority"]
+                    self.worker_handler.enqueue_job(message, put_front=has_priority)
                 else:
                     self.worker_handler.done_queue.put(
                         {
@@ -613,7 +624,7 @@ def shutdown_server(connection, force=False, finish_queue=False):
     )
 
 
-def unpack_samples(samples, config, headless, ident, output_folder, block):
+def unpack_samples(samples, config, headless, ident, output_folder, block, priority):
     with connect_to_server() as connection: # might throw
         if output_folder is not None:
             output_folder = os.path.abspath(output_folder)
@@ -628,6 +639,7 @@ def unpack_samples(samples, config, headless, ident, output_folder, block):
             "id": None,
             "output_folder": output_folder,
             "ident": ident,
+            "priority": priority,
         }
         samples = get_files(samples)
         ids = []
@@ -700,6 +712,7 @@ if __name__ == "__main__":
     send_parser.add_argument('--ident', action="store", help="Configure an identifier for the output.", default="")
     send_parser.add_argument('--output', action="store", help="Specify a custom output folder for the dumps", default=None)
     send_parser.add_argument('--block', action="store_true")
+    send_parser.add_argument('--first', action="store_true")
     server_parser = subparsers.add_parser("server")
     monitor_parser = subparsers.add_parser("monitor")
     monitor_parser.add_argument('job_ids', nargs="+", metavar='Job IDs', type=str, help='Ids of Jobs to monitor')
@@ -720,7 +733,7 @@ if __name__ == "__main__":
     if args.action == "server":
         start_server_safe()
     elif args.action == "unpack":
-        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block)
+        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block, args.first)
     elif args.action == "monitor":
         with connect_to_server() as connection: # might throw
             monitor_ids(connection, list( args.job_ids))
