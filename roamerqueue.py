@@ -1,6 +1,7 @@
 import argparse
 from copy import deepcopy
 import io
+from itertools import chain
 from queue import Empty
 import sys
 import uuid
@@ -641,7 +642,7 @@ def unpack_samples(samples, config, headless, ident, output_folder, block, prior
             "ident": ident,
             "priority": priority,
         }
-        samples = get_files(samples)
+        samples = chain(*[get_files(entry) for entry in samples])
         ids = []
         for sample in samples:
             task = dict(**task_base)
@@ -706,7 +707,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='RoAMer')
     subparsers = parser.add_subparsers(dest="action", required=True)
     send_parser = subparsers.add_parser("unpack")
-    send_parser.add_argument('Samples', metavar='Sample', type=str, help='Path to sample or folder of samples')
+    send_parser.add_argument('Samples', metavar='Sample', nargs="+", type=str, help='Path to sample or folder of samples')
     send_parser.add_argument('--config', action='store', help="Which config shall be used?", default=WORKER_BASE_CONFIG)
     send_parser.add_argument('--no-headless', action='store_false', help='Start the Sandbox in headless mode', dest="headless")
     send_parser.add_argument('--ident', action="store", help="Configure an identifier for the output.", default="")
