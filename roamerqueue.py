@@ -1,5 +1,6 @@
 import argparse
 from copy import deepcopy
+import functools
 import io
 from itertools import chain
 from queue import Empty
@@ -545,21 +546,52 @@ def connect_to_server():
     return connection
 
 
-def get_files(target_path):
+def get_files(target_path, filter):
     samples = []
     try:
         if os.path.isdir(target_path):
             for filename in os.listdir(target_path):
                 sample = os.path.join(target_path, filename)
-                if os.path.isfile(sample):
+                if os.path.isfile(sample) and filter(sample):
                     samples.append(os.path.abspath(sample))
         elif os.path.isfile(target_path):
-            samples.append(os.path.abspath(target_path))
+            if filter(target_path):
+                samples.append(os.path.abspath(target_path))
         else:
             LOG.error("Target was neither file nor directory, aborting.")
     except Exception:
         LOG.exception("uncaught exception")
     return samples
+
+@functools.lru_cache(maxsize=1)
+def gather_roamered_files(output_folder, ident):
+    filter_set = set()
+    search_string = ("_" + ident if ident else "") + "_dumps"
+    for output in os.listdir(output_folder):
+        if not os.path.isdir(os.path.join(output_folder, output)):
+            continue
+        if not search_string in output:
+            continue
+        file_name = output.split(search_string)[0]
+        filter_set.add(file_name) 
+    return filter_set
+
+
+def get_unroamered_files_filter(output_folder, ident):
+
+    if output_folder is None:
+        def filter(sample_path):
+            sample_path = os.path.abspath(sample_path)
+            filter_set = gather_roamered_files(os.path.dirname(sample_path), ident)
+            file_name = os.path.basename(sample_path)
+            return file_name not in filter_set
+    else:
+        filter_set = gather_roamered_files(output_folder, ident)
+        def filter(sample_path):
+            file_name = os.path.basename(sample_path)
+            return file_name not in filter_set
+
+    return filter
 
 
 def monitor_ids(connection, ids):
@@ -626,7 +658,7 @@ def shutdown_server(connection, force=False, finish_queue=False):
     )
 
 
-def unpack_samples(samples, config, headless, ident, output_folder, block, priority):
+def unpack_samples(samples, config, headless, ident, output_folder, block, priority, unroamered_only):
     with connect_to_server() as connection: # might throw
         if output_folder is not None:
             output_folder = os.path.abspath(output_folder)
@@ -643,7 +675,13 @@ def unpack_samples(samples, config, headless, ident, output_folder, block, prior
             "ident": ident,
             "priority": priority,
         }
-        samples = chain(*[get_files(entry) for entry in samples])
+
+        if unroamered_only:
+            filter = get_unroamered_files_filter(output_folder, ident)
+        else:
+            filter = lambda x: True
+
+        samples = chain(*[get_files(entry, filter) for entry in samples])
         ids = []
         for sample in samples:
             task = dict(**task_base)
@@ -713,6 +751,7 @@ if __name__ == "__main__":
     send_parser.add_argument('--no-headless', action='store_false', help='Start the Sandbox in headless mode', dest="headless")
     send_parser.add_argument('--ident', action="store", help="Configure an identifier for the output.", default="")
     send_parser.add_argument('--output', action="store", help="Specify a custom output folder for the dumps", default=None)
+    send_parser.add_argument('--continue', action="store_true", help="Only unpack files which do not have a dump folder", default=None)
     send_parser.add_argument('--block', action="store_true")
     send_parser.add_argument('--first', action="store_true")
     server_parser = subparsers.add_parser("server")
@@ -735,7 +774,7 @@ if __name__ == "__main__":
     if args.action == "server":
         start_server_safe()
     elif args.action == "unpack":
-        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block, args.first)
+        unpack_samples(args.Samples, args.config, args.headless, args.ident, args.output, args.block, args.first, getattr(args, "continue"))
     elif args.action == "monitor":
         with connect_to_server() as connection: # might throw
             monitor_ids(connection, list( args.job_ids))
