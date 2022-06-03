@@ -9,6 +9,7 @@ import uuid
 import psutil
 import importlib
 import json
+import pickle
 import logging
 import os
 from threading import Thread
@@ -62,8 +63,8 @@ class ExtendedQueue(Queue):
 def get_current_server_lock_data():
     #FIXME: Not atomic
     if os.path.exists(LOCKFILE_PATH):
-        with open(LOCKFILE_PATH, "r") as f:
-            server_data = json.load(f)
+        with open(LOCKFILE_PATH, "rb") as f:
+            server_data = pickle.load(f)
         pid = server_data["pid"]
         if not psutil.pid_exists(pid):
             return None
@@ -449,14 +450,14 @@ class Server:
 
 
     def get_listener_and_lock(self):
-        with open(LOCKFILE_PATH, "w") as f:
+        with open(LOCKFILE_PATH, "wb") as f:
             self.listener = Listener() 
             print(self.listener.address)
             server_data = {
                 "address": self.listener.address,
                 "pid": os.getpid(),
             }
-            json.dump(server_data, f)
+            pickle.dump(server_data, f)
 
     def on_client_message(self, message, client_id):
         try:
