@@ -259,11 +259,6 @@ def return_memory_map_for_pid(pid):
             pageStart = newAddress
     return memory_map
 
-
-def getUserPath():
-    return "C:\\Users\\%s\\" % os.getenv("username")
-
-
 def prepareOperatingSystem(config, userPath):
     if config["hook32"]:
         logging.info("placing hook for 32bit processes")

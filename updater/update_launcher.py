@@ -1,5 +1,6 @@
 import os
 import subprocess
 
-user_path = "C:\\Users\\%s\\" % os.getenv("username")
-subprocess.Popen(f"python {user_path}\\updater.py")
+from utility.win_env import get_user_path
+
+subprocess.Popen(["python", os.path.join([get_user_path(), "updater.py"])])

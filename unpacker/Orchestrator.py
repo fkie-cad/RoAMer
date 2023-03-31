@@ -7,13 +7,14 @@ import time
 import traceback
 
 from unpacker.Unpacker import Unpacker
-from unpacker.winwrapper.utilities import getUserPath, prepareOperatingSystem
+from unpacker.winwrapper.utilities import prepareOperatingSystem
+from utility.win_env import get_user_path
 
 
 class Orchestrator:
 
     def __init__(self):
-        self.userPath = getUserPath()
+        self.userPath = get_user_path()
         self.config = None
         self.sample = None
         self.isLocalUnpacking = False
