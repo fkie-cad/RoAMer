@@ -59,7 +59,8 @@ class Receiver:
             self._write_b64_encoded_file(filename, received_files["unpacker"][filename])
 
     def _write_b64_encoded_file(self, filename, data):
-        with open(self.user_path + filename, "wb") as f_out:
+        fp = os.path.join(self.user_path, filename)
+        with open(fp, "wb") as f_out:
             f_out.write(base64.b64decode(data))
 
     def run(self):
