@@ -272,9 +272,9 @@ def startAsLibrary(samplePath):
     logging.info("launching as DLL")
     try:
         pe = pefile.PE(samplePath)
-        rundll_path = os.sep.join(["C:/", "Windows", "SysWOW64", "rundll32.exe"])
+        rundll_path = os.sep.join(["C:" + os.sep, "Windows", "SysWOW64", "rundll32.exe"])
         if pe.PE_TYPE == 0x20b:
-            rundll_path = os.sep.join(["C:/", "Windows", "System32", "rundll32.exe"])
+            rundll_path = os.sep.join(["C:" + os.sep, "Windows", "System32", "rundll32.exe"])
         logging.info("using rundll path: {}".format(rundll_path))
         logging.info("Starting DllMain...".format(rundll_path))
         launchProcess("{} {},{}".format(rundll_path, samplePath, "DllMain"))
