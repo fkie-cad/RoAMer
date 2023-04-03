@@ -117,7 +117,7 @@ class Updater:
     def update_whitelist(self, executable_path):
         self.cleanup([os.path.join(*[self.userPath, "pe_header_whitelist.json"])])
         subprocess.Popen(
-            [executable_path, os.path.join(*["C:"])], cwd=self.userPath
+            [executable_path, os.path.join(*["C:/"])], cwd=self.userPath
         ).wait()
 
     def replace_receiver(self, source):
