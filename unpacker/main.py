@@ -10,7 +10,7 @@ import sys
 sys.path.append('..')
 
 def main():
-    logging.basicConfig(filename=os.path.join([get_user_path(), "roamer.log"]),
+    logging.basicConfig(filename=os.path.join(*[get_user_path(), "roamer.log"]),
                         format="%(asctime)-15s %(levelname)-7s %(module)s.%(funcName)s(): %(message)s",
                         level=logging.DEBUG)
 

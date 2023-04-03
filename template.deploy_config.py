@@ -15,8 +15,8 @@ BUILD_INSTANCE = {
         "repo": os.path.join(
             [USERPATH, "roamer_repo"]
         ),  # used for compiling source / storing binaries
-        "repo_zip": os.path.join([USERPATH, "roamer.zip"]),  # used for compiling source
-        "to_whitelist": os.path.join(["C:"]),  # used to create whitelist
+        "repo_zip": os.path.join(*[USERPATH, "roamer.zip"]),  # used for compiling source
+        "to_whitelist": os.path.join(*["C:"]),  # used to create whitelist
     },
     "host_ip": "192.168.56.1",
     "host_port": 10000,
@@ -41,8 +41,8 @@ PROD_INSTANCE = {
         "repo": os.path.join(
             [USERPATH, "roamer_repo"]
         ),  # used for compiling source / storing binaries
-        "repo_zip": os.path.join([USERPATH, "roamer.zip"]),  # used for compiling source
-        "to_whitelist": os.path.join(["C:"]),  # used to create whitelist
+        "repo_zip": os.path.join(*[USERPATH, "roamer.zip"]),  # used for compiling source
+        "to_whitelist": os.path.join(*["C:"]),  # used to create whitelist
     },
     "host_ip": "192.168.56.1",
     "host_port": 10000,
