@@ -11,7 +11,7 @@ from utility.win_env import get_user_path
 class WhitelistFilter:
     def __init__(self, parent, additonal_white_list):
         self.parent = parent
-        self.hash_table_path = os.path.join(*[get_user_path, "pe_header_whitelist.json"])
+        self.hash_table_path = os.path.join(*[get_user_path(), "pe_header_whitelist.json"])
         self.dll_hash_table = self.update()
         self.dll_hash_table.update(additonal_white_list)
         self._filter_all = False

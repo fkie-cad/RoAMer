@@ -9,7 +9,7 @@ from utility.win_env import get_user_path
 
 class ModulesMonitor:
     def __init__(self):
-        whitelist_path = os.path.join(*[get_user_path, "pe_header_whitelist.json"])
+        whitelist_path = os.path.join(*[get_user_path(), "pe_header_whitelist.json"])
         with open(whitelist_path, "r") as f_in:
             self.dll_hash_table = json.loads(f_in.read())
         logging.info("loaded %d PE header whitelist entries", len(self.dll_hash_table))
