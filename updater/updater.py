@@ -96,18 +96,18 @@ class Updater:
     def remove_this_script(self):
         if self.config["staged_update"]:
             logging.info("Remove this update script")
-            os.remove(os.path.join(*[self.userPath, "main.exe"]))
+            os.remove(os.path.join(self.userPath, "main.exe"))
             os.remove(os.path.abspath(__file__))
         else:
             logging.info("Remove this executable")
-            tmp_bat_path = os.path.join(*[self.userPath, "tmp.bat"])
+            tmp_bat_path = os.path.join(self.userPath, "tmp.bat")
             self_delete_cmd = f"""
                 @echo off
                 :start
-                if exist {os.path.join(*[self.userPath, "main.exe"])} goto delete
+                if exist {os.path.join(self.userPath, "main.exe")} goto delete
                 del {tmp_bat_path}
                 :delete
-                del {os.path.join(*[self.userPath, "main.exe"])}
+                del {os.path.join(self.userPath, "main.exe")}
                 goto start
             """
             with open(tmp_bat_path, "w") as f:
@@ -115,9 +115,9 @@ class Updater:
             subprocess.Popen(f"cmd /c {tmp_bat_path}", stdout=None)
 
     def update_whitelist(self, executable_path):
-        self.cleanup([os.path.join(*[self.userPath, "pe_header_whitelist.json"])])
+        self.cleanup([os.path.join(self.userPath, "pe_header_whitelist.json")])
         subprocess.Popen(
-            [executable_path, os.path.join(*["C:" + os.sep])], cwd=self.userPath
+            [executable_path, os.path.join("C:" + os.sep)], cwd=self.userPath
         ).wait()
 
     def replace_receiver(self, source):
@@ -139,25 +139,25 @@ class Updater:
             result.update(
                 {
                     "unpacker": self._get_content_of_file_as_base64(
-                        os.path.join(*[self.roamerRepoPath, "unpacker","dist","main.exe"])
+                        os.path.join(self.roamerRepoPath, "unpacker", "dist", "main.exe")
                     ),
                     "receiver": self._get_content_of_file_as_base64(
-                        os.path.join(*[self.roamerRepoPath, "receiver","dist","main.exe"])
+                        os.path.join(self.roamerRepoPath, "receiver", "dist", "main.exe")
                     ),
                     "whitelister": self._get_content_of_file_as_base64(
-                        os.path.join(*[self.roamerRepoPath,"whitelister","dist","PEHeaderWhitelister.exe"])
+                        os.path.join(self.roamerRepoPath, "whitelister", "dist", "PEHeaderWhitelister.exe")
                     ),
                     "update_launcher": self._get_content_of_file_as_base64(
-                        os.path.join(*[self.roamerRepoPath, "updater", "dist", "update_launcher.exe"])
+                        os.path.join(self.roamerRepoPath, "updater", "dist", "update_launcher.exe")
                     ),
                     "updater": self._get_content_of_file_as_base64(
-                        os.path.join(*[self.roamerRepoPath, "updater", "dist", "updater.exe"])
+                        os.path.join(self.roamerRepoPath, "updater", "dist", "updater.exe")
                     ),
                 }
             )
         if "whitelist" in self.tasks:
             result["pe_header_whitelist.json"] = self._get_content_of_file_as_base64(
-                os.path.join(*[self.userPath,  "pe_header_whitelist.json"])
+                os.path.join(self.userPath, "pe_header_whitelist.json")
             )
 
         if len(result) != 0:
@@ -180,8 +180,8 @@ class Updater:
         start_time = time.time()
         receiver_termination_duration = 4
         strict_cleanup_list = [
-            os.path.join(*[self.userPath, "config"]),
-            os.path.join(*[self.userPath, "sample"]),
+            os.path.join(self.userPath, "config"),
+            os.path.join(self.userPath, "sample"),
         ]
 
         if not self.isLocalUnpacking:
@@ -191,14 +191,14 @@ class Updater:
             if "compile_on_client" in self.tasks:
                 self.extract_source()
                 self.compile_source()
-                receiver_source_path = os.path.join(*[self.roamerRepoPath, "receiver", "dist", "main.exe"])
+                receiver_source_path = os.path.join(self.roamerRepoPath, "receiver", "dist", "main.exe")
                 whitelister_source_path = (
-                    os.path.join(*[self.roamerRepoPath, "whitelister", "dist", "PEHeaderWhitelister.exe"])
+                    os.path.join(self.roamerRepoPath, "whitelister", "dist", "PEHeaderWhitelister.exe")
                 )
                 strict_cleanup_list += [self.roamerRepoPath, self.roamerZipPath]
 
             if "receiver_bin_to_client" in self.tasks:
-                receiver_source_path = os.path.join(*[self.userPath, "new_receiver.exe"])
+                receiver_source_path = os.path.join(self.userPath, "new_receiver.exe")
                 strict_cleanup_list += [receiver_source_path]
 
             if "overwrite_receiver" in self.tasks:
@@ -209,7 +209,7 @@ class Updater:
                 self.replace_receiver(receiver_source_path)
 
             if "whitelister_bin_to_client" in self.tasks:
-                whitelister_source_path = os.path.join(*[self.userPath, "whitelister.exe"])
+                whitelister_source_path = os.path.join(self.userPath, "whitelister.exe")
                 strict_cleanup_list += [whitelister_source_path]
 
             if "whitelist" in self.tasks:

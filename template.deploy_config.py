@@ -9,14 +9,10 @@ BIN_ROOT = str(os.path.abspath(os.sep.join([PROJECT_ROOT, "roamer", "bin"])))
 USERPATH = get_user_path()
 BUILD_INSTANCE = {
     "client_paths": {
-        "receiver": os.path.join(
-            [USERPATH, "Desktop", "roamer.exe"]
-        ),  # used for update_receiver
-        "repo": os.path.join(
-            [USERPATH, "roamer_repo"]
-        ),  # used for compiling source / storing binaries
-        "repo_zip": os.path.join(*[USERPATH, "roamer.zip"]),  # used for compiling source
-        "to_whitelist": os.path.join(*["C:" + os.sep]),  # used to create whitelist
+        "receiver": os.path.join(USERPATH, "Desktop", "roamer.exe"),  # used for update_receiver
+        "repo": os.path.join(USERPATH, "roamer_repo"),  # used for compiling source / storing binaries
+        "repo_zip": os.path.join(USERPATH, "roamer.zip"),  # used for compiling source
+        "to_whitelist": os.path.join("C:" + os.sep),  # used to create whitelist
     },
     "host_ip": "192.168.56.1",
     "host_port": 10000,
@@ -32,17 +28,12 @@ BUILD_INSTANCE = {
     "VM_NAME": "vm_name_build",
     "SNAPSHOT_NAME": "snapshot_name_build",
 }
-
 PROD_INSTANCE = {
     "client_paths": {
-        "receiver": os.path.join(
-            [USERPATH, "Desktop", "roamer.exe"]
-        ),  # used for update_receiver
-        "repo": os.path.join(
-            [USERPATH, "roamer_repo"]
-        ),  # used for compiling source / storing binaries
-        "repo_zip": os.path.join(*[USERPATH, "roamer.zip"]),  # used for compiling source
-        "to_whitelist": os.path.join(*["C:" + os.sep]),  # used to create whitelist
+        "receiver": os.path.join(USERPATH, "Desktop", "roamer.exe"),  # used for update_receiver
+        "repo": os.path.join(USERPATH, "roamer_repo"),  # used for compiling source / storing binaries
+        "repo_zip": os.path.join(USERPATH, "roamer.zip"),  # used for compiling source
+        "to_whitelist": os.path.join("C:" + os.sep),  # used to create whitelist
     },
     "host_ip": "192.168.56.1",
     "host_port": 10000,
@@ -58,6 +49,7 @@ PROD_INSTANCE = {
     "VM_NAME": "vm_name_prod",
     "SNAPSHOT_NAME": "snapshot_name_prod",
 }
+
 
 # Use the following line instead of specifying a PROD_INSTANCE
 # if you are building roamer on the same vm instance you are dumping with

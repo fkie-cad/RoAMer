@@ -70,7 +70,7 @@ class Receiver:
         LOG.debug("writing files...")
         self._write_files(receivedData)
         time.sleep(1)
-        process_id = self.win_manipulator.create_process(os.path.join(*[self.user_path, "main.exe"]))
+        process_id = self.win_manipulator.create_process(os.path.join(self.user_path, "main.exe"))
         time.sleep(1)
         self.win_manipulator.grant_debug_privilege(process_id)
 
