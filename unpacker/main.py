@@ -3,13 +3,14 @@ import logging
 import os
 
 from unpacker.Orchestrator import Orchestrator
+from utility.win_env import get_user_path
 
 import sys
 # For utility imports
 sys.path.append('..')
 
 def main():
-    logging.basicConfig(filename="C:\\Users\\{}\\roamer.log".format(os.getenv("username")),
+    logging.basicConfig(filename=os.path.join(get_user_path(), "roamer.log"),
                         format="%(asctime)-15s %(levelname)-7s %(module)s.%(funcName)s(): %(message)s",
                         level=logging.DEBUG)
 

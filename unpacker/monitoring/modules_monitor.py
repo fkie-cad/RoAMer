@@ -4,12 +4,12 @@ import os
 from collections import defaultdict
 
 from unpacker.winwrapper import utilities
+from utility.win_env import get_user_path
 
 
 class ModulesMonitor:
-
     def __init__(self):
-        whitelist_path = "C:\\Users\\%s\\pe_header_whitelist.json" % os.getenv("username")
+        whitelist_path = os.path.join(get_user_path(), "pe_header_whitelist.json")
         with open(whitelist_path, "r") as f_in:
             self.dll_hash_table = json.loads(f_in.read())
         logging.info("loaded %d PE header whitelist entries", len(self.dll_hash_table))
@@ -26,7 +26,9 @@ class ModulesMonitor:
     def _get_modules_for_name(self, name):
         for pid in self.current_snapshot.keys():
             if self.current_snapshot[pid]["name"] == name:
-                return {pid: {"name": name, "modules": self.current_snapshot[pid]["modules"]}}
+                return {
+                    pid: {"name": name, "modules": self.current_snapshot[pid]["modules"]}
+                }
         return {None: {"name": name, "modules": set()}}
 
     def track_changes(self, interval=0):
@@ -35,7 +37,9 @@ class ModulesMonitor:
         self.generate_modules_snapshot()
         for pid in self.current_snapshot:
             if pid in modules_reference.keys():
-                changes = list(self.current_snapshot[pid].difference(modules_reference[pid]))
+                changes = list(
+                    self.current_snapshot[pid].difference(modules_reference[pid])
+                )
             else:
                 changes = list(self.current_snapshot[pid])
             if pid not in self.changes_modules:
@@ -68,4 +72,8 @@ class ModulesMonitor:
         return {"modules_latest_changes": self.changes_modules}
 
     def get_change_summary(self):
-        return {"modules_change_summary": sorted([pid for pid in self.changes_modules if self.changes_modules[pid]])}
+        return {
+            "modules_change_summary": sorted(
+                [pid for pid in self.changes_modules if self.changes_modules[pid]]
+            )
+        }

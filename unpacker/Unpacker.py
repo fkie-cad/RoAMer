@@ -7,14 +7,15 @@ from unpacker.dumping.dumper import Dumper
 from unpacker.monitoring.monitor_manager import MonitorManager
 from utility.pe_tools import check_if_library
 from unpacker.winwrapper.user_interaction import UserInteractor
-from unpacker.winwrapper.utilities import getUserPath, startAsLibrary, startAsExe
+from unpacker.winwrapper.utilities import startAsLibrary, startAsExe
+from utility.win_env import get_user_path
 
 
 class Unpacker:
 
     def __init__(self, sample, config):
         self.sample = sample
-        self.userPath = getUserPath()
+        self.userPath = get_user_path()
         self.samplePath = os.path.join(self.userPath, "Desktop")
         
         self.fileType = self.determine_file_type(sample)

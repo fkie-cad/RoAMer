@@ -5,12 +5,13 @@ import os
 
 from utility.pe_tools import normalize_pe_header
 from unpacker.winwrapper.utilities import read_memory, open_process, close_handle
+from utility.win_env import get_user_path
 
 
 class WhitelistFilter:
     def __init__(self, parent, additonal_white_list):
         self.parent = parent
-        self.hash_table_path = "C:\\Users\\{}\\pe_header_whitelist.json".format(os.getenv("username"))
+        self.hash_table_path = os.path.join(get_user_path(), "pe_header_whitelist.json")
         self.dll_hash_table = self.update()
         self.dll_hash_table.update(additonal_white_list)
         self._filter_all = False
