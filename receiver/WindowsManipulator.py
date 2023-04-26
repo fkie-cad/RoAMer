@@ -1,7 +1,7 @@
 import ctypes
 from ctypes import wintypes
 
-import injector_defines
+import receiver.injector_defines
 import win32con
 import win32process
 

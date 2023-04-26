@@ -1,1 +1,1 @@
-import main
+import receiver.main

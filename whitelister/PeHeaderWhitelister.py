@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-from PeHeaderHasher import get_hashed_header_from_file
+from whitelister.PeHeaderHasher import get_hashed_header_from_file
 
 def hexdump(src, length=32, indent=0):
     """
